@@ -10,6 +10,8 @@
   --color-cork-border: #40372e;
   --color-driftwood: #6c5f51;
   --color-ember-accent: #dc5000;
+  /* One step up from bark brown, for the raised state of a filled button. */
+  --color-bark-raised: #4a3220;
   --color-pure-black: #000000;
 
   /* Cream / wheat palette - light sections */
@@ -21,6 +23,10 @@
   --color-ink-muted: #6b6252;
   --color-olive: #5f6749;
   --color-ember-deep: #b84400;
+
+  /* A nav pill at rest: a whisper of warm cream, so a row of them reads as one
+     quiet group instead of five buttons competing with the wordmark. */
+  --color-pill-rest: rgba(255, 237, 215, 0.07);
 
   /* Typography - the brand family is defined here and nowhere else.
      Swapping fonts means changing this one line (plus the @import above). */
@@ -57,9 +63,17 @@
   :root {
     color-scheme: dark;
   }
-  
+
   html {
     scroll-behavior: smooth;
+  }
+
+  /* Lenis stamps this class on <html> while it is running, and it drives the
+     scroll position itself - native smoothing on top of that fights it. The
+     rule above stays as the fallback for when Lenis is not running at all
+     (reduced motion), where the rule below has already turned it off. */
+  html.lenis {
+    scroll-behavior: auto;
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -157,12 +171,54 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: clamp(28px, 5vh, 64px);
-    padding: clamp(40px, 6vh, 88px) 45px;
+    /* Tight enough that emblem, wordmark, statement and CTA all clear the fold
+       on a laptop; the section grows past the viewport rather than clipping
+       when they cannot. */
+    gap: clamp(20px, 3.6vh, 56px);
+    padding: clamp(32px, 4.5vh, 80px) 45px;
     text-align: center;
+    box-sizing: border-box;
     min-height: calc(100vh - var(--nav-height));
     min-height: calc(100dvh - var(--nav-height));
     background-color: var(--color-walnut-shadow);
+    /* Clips the scan layer's 600px overhang only - the flow content sizes the
+       box, so nothing in it can reach this. */
+    overflow: hidden;
+  }
+
+  /* The scan sits at the very back, where the hairline arc used to be. 600px is
+     its floor, so the effect still has room to read on a short viewport; the
+     hero clips whatever overhangs. */
+  .hero__scan {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    min-height: 600px;
+    pointer-events: none;
+  }
+
+  /* Between the grid and the type. Walnut, densest where the wordmark and
+     statement land, so the sweep never fights the text for contrast and the
+     section still ends on the same ground the next one starts from. */
+  .hero__scrim {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    pointer-events: none;
+    background:
+      radial-gradient(
+        68% 58% at 50% 54%,
+        color-mix(in srgb, var(--color-walnut-shadow) 86%, transparent) 0%,
+        color-mix(in srgb, var(--color-walnut-shadow) 58%, transparent) 52%,
+        transparent 80%
+      ),
+      linear-gradient(
+        180deg,
+        var(--color-walnut-shadow) 0%,
+        transparent 18%,
+        transparent 82%,
+        var(--color-walnut-shadow) 100%
+      );
   }
 
   @media (max-width: 768px) {
@@ -172,66 +228,75 @@
     }
   }
 
-  .hero__geometry {
-    position: absolute;
-    inset: 0;
-    z-index: 0;
-    overflow: hidden;
-    pointer-events: none;
-  }
-
-  .hero__geometry-svg {
-    width: 100%;
-    height: 100%;
-  }
-
-  .hero__geometry-arc {
-    fill: none;
-    stroke: var(--color-cork-border);
-    stroke-width: 1;
-    vector-effect: non-scaling-stroke;
-  }
-
-  .hero__geometry-line {
-    stroke: var(--color-cork-border);
-    stroke-width: 1;
-    vector-effect: non-scaling-stroke;
-  }
-
-  .hero__nav {
-    position: relative;
-    z-index: 50;
-    flex: 0 0 auto;
-    min-height: 68px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 24px;
-    padding: 12px 45px;
-    background: transparent;
-    border: none;
-  }
-
-  /* Same nav, pinned, for pages without a hero behind it. */
-  .hero__nav--sticky {
+  /* Pill navigation - see components/PillNav.tsx.
+     Colours arrive from the component as --pn-* custom properties, so this
+     sheet never hard-codes which token a pill is wearing. */
+  .pill-nav {
     position: sticky;
     top: 0;
     z-index: 60;
-    background-color: var(--color-walnut-shadow);
+    background-color: transparent;
+    border-bottom: 1px solid transparent;
+    transition: background-color 320ms var(--pn-ease), border-color 320ms var(--pn-ease),
+      box-shadow 320ms var(--pn-ease);
+  }
+
+  /* Once content is travelling underneath, the bar earns its ground: warm
+     translucent walnut, the same hairline the hero geometry is drawn with, and
+     a blur that keeps the pills legible over whatever is passing beneath. The
+     blur is load-bearing at this opacity, not glass for its own sake. An open
+     panel takes the same treatment - it needs a floor to sit on. */
+  .pill-nav[data-scrolled="true"],
+  .pill-nav[data-open="true"] {
+    background-color: color-mix(in srgb, var(--color-walnut-shadow) 78%, transparent);
+    border-bottom-color: var(--color-cork-border);
+    box-shadow: 0 10px 30px -12px rgba(16, 9, 4, 0.72);
+    backdrop-filter: blur(16px) saturate(130%);
+  }
+
+  .pill-nav[data-theme="light"][data-scrolled="true"],
+  .pill-nav[data-theme="light"][data-open="true"] {
+    background-color: color-mix(in srgb, var(--color-cream-bg) 82%, transparent);
+    border-bottom-color: var(--color-wheat-border);
+    box-shadow: 0 10px 30px -12px rgba(47, 42, 30, 0.2);
+  }
+
+  .pill-nav__bar {
+    min-height: var(--nav-height);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 45px;
   }
 
   @media (max-width: 768px) {
-    .hero__nav {
-      padding-left: 24px;
-      padding-right: 24px;
+    .pill-nav__bar {
+      padding-inline: 24px;
     }
   }
 
-  /* Keeps the items and the CTA pill as one right-hand cluster instead of
-     letting space-between fling them apart. */
-  .hero__nav-right {
-    display: flex;
+  /* Brand sits left; the auto margin does the pushing, so the pills and the
+     action stay one right-hand cluster instead of being flung apart. */
+  .pill-nav__brand {
+    display: inline-flex;
     align-items: center;
+    gap: 10px;
+    margin-right: auto;
+    font-size: 18px;
+    font-weight: 500;
+    text-transform: uppercase;
+    color: var(--color-warm-cream);
+    text-decoration: none;
+    white-space: nowrap;
+    transition: opacity 260ms var(--pn-ease);
+  }
+
+  .pill-nav__brand:hover {
+    opacity: 0.78;
+  }
+
+  .pill-nav[data-theme="light"] .pill-nav__brand {
+    color: var(--color-ink);
   }
 
   .wordmark-ai {
@@ -243,111 +308,304 @@
     color: var(--color-ember-deep);
   }
 
-  .hero__nav-wordmark {
-    display: inline-flex;
-    align-items: center;
-    gap: 10px;
-    font-size: 18px;
-    font-weight: 500;
-    text-transform: uppercase;
-    letter-spacing: 0;
-    color: var(--color-warm-cream);
-    background: none;
-    border: none;
-    cursor: pointer;
-    padding: 0;
-    white-space: nowrap;
-  }
-
-  .hero__nav-logo {
-    display: block;
-    width: 26px;
-    height: 26px;
+  /* The mark rides in a circle of the colour that fills the pills. */
+  .pill-nav__logo {
+    display: grid;
+    place-items: center;
+    width: 34px;
+    height: 34px;
     flex-shrink: 0;
+    border-radius: 50%;
+    background-color: var(--pn-base);
+    transition: transform 0.5s var(--pn-ease);
   }
 
-  .hero__nav-items {
+  .pill-nav__logo img {
+    display: block;
+    width: 20px;
+    height: 20px;
+  }
+
+  .pill-nav__brand:hover .pill-nav__logo {
+    transform: rotate(360deg);
+  }
+
+  .pill-nav__list {
     display: flex;
     align-items: center;
-    gap: 31px;
+    gap: 6px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
   }
 
+  /* The row cannot hold five pills and a CTA here; the burger takes over. */
   @media (max-width: 1199px) {
-    .hero__nav-items {
+    .pill-nav__list {
       display: none;
     }
   }
 
-  .hero__nav-item {
+  .pill-nav__pill,
+  .pill-nav__action {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    overflow: hidden;
+    border: 1px solid color-mix(in srgb, currentColor 16%, transparent);
+    border-radius: var(--radius-full);
+    padding: 11px 21px;
+    background-color: var(--pn-pill);
+    color: var(--pn-pill-text);
+    font-family: inherit;
     font-size: 12px;
     font-weight: 500;
+    letter-spacing: 0.08em;
     text-transform: uppercase;
-    letter-spacing: 0;
-    color: var(--color-warm-cream);
-    opacity: 0.7;
-    background: none;
-    border: none;
-    cursor: pointer;
-    padding: 0;
-    position: relative;
+    text-decoration: none;
     white-space: nowrap;
-    transition: opacity 0.2s ease;
+    cursor: pointer;
+    transition: border-color 300ms var(--pn-ease);
   }
 
-  .hero__nav-item:hover {
-    opacity: 1;
+  /* The edge warms toward the accent as the fill arrives, so the pill does not
+     read as a bordered box with something happening inside it. */
+  .pill-nav__pill:hover,
+  .pill-nav__pill:focus-visible,
+  .pill-nav__pill[data-active="true"],
+  .pill-nav__action:hover,
+  .pill-nav__action:focus-visible {
+    border-color: color-mix(in srgb, var(--pn-base) 55%, transparent);
   }
 
-  .hero__nav-item::after {
-    content: '';
+  /* The CTA keeps its own resting colour so it still reads as the CTA; it
+     fills with the same accent as every other pill. */
+  .pill-nav__action {
+    margin-left: 17px;
+    background-color: var(--color-bark-brown);
+    color: var(--color-warm-cream);
+  }
+
+  /* Grows from the pill's floor. Wider than the pill so the corners fill too. */
+  .pill-nav__circle {
     position: absolute;
-    left: 0;
-    bottom: -2px;
-    width: 100%;
-    height: 1px;
+    left: 50%;
+    bottom: 0;
+    width: 150%;
+    aspect-ratio: 1;
+    border-radius: 50%;
+    background-color: var(--pn-base);
+    transform: translate(-50%, 50%) scale(0);
+    transition: transform 0.34s var(--pn-ease);
+    pointer-events: none;
+  }
+
+  .pill-nav__pill:hover .pill-nav__circle,
+  .pill-nav__pill:focus-visible .pill-nav__circle,
+  .pill-nav__pill[data-active="true"] .pill-nav__circle,
+  .pill-nav__action:hover .pill-nav__circle,
+  .pill-nav__action:focus-visible .pill-nav__circle {
+    transform: translate(-50%, 50%) scale(1);
+  }
+
+  /* Both labels stack in one clipped box, so one leaves as the other arrives. */
+  .pill-nav__label-stack {
+    position: relative;
+    z-index: 1;
+    display: block;
+    overflow: hidden;
+    line-height: 1.25;
+  }
+
+  .pill-nav__label {
+    display: block;
+    transition: transform 0.34s var(--pn-ease);
+  }
+
+  .pill-nav__label--hover {
+    position: absolute;
+    inset: 0;
+    color: var(--pn-pill-text-hover);
+    transform: translateY(105%);
+  }
+
+  .pill-nav__pill:hover .pill-nav__label,
+  .pill-nav__pill:focus-visible .pill-nav__label,
+  .pill-nav__pill[data-active="true"] .pill-nav__label,
+  .pill-nav__action:hover .pill-nav__label,
+  .pill-nav__action:focus-visible .pill-nav__label {
+    transform: translateY(-105%);
+  }
+
+  .pill-nav__pill:hover .pill-nav__label--hover,
+  .pill-nav__pill:focus-visible .pill-nav__label--hover,
+  .pill-nav__pill[data-active="true"] .pill-nav__label--hover,
+  .pill-nav__action:hover .pill-nav__label--hover,
+  .pill-nav__action:focus-visible .pill-nav__label--hover {
+    transform: translateY(0);
+  }
+
+  .pill-nav__brand:focus-visible,
+  .pill-nav__pill:focus-visible,
+  .pill-nav__action:focus-visible,
+  .pill-nav__burger:focus-visible {
+    outline: 2px solid var(--pn-base);
+    outline-offset: 3px;
+  }
+
+  /* Burger: two bars that cross when the panel is open. */
+  .pill-nav__burger {
+    display: none;
+    flex-direction: column;
+    justify-content: center;
+    gap: 6px;
+    width: 42px;
+    height: 42px;
+    padding: 0;
+    border: 1px solid var(--color-cork-border);
+    border-radius: 50%;
+    background: none;
+    cursor: pointer;
+  }
+
+  .pill-nav__burger span {
+    display: block;
+    width: 16px;
+    height: 1.5px;
+    margin-inline: auto;
     background-color: var(--color-warm-cream);
-    transform: scaleX(0);
-    transform-origin: right;
-    transition: transform 0.2s ease;
+    transition: transform 0.28s var(--pn-ease);
   }
 
-  .hero__nav-item:hover::after,
-  .hero__nav-item[data-active="true"]::after {
-    transform: scaleX(1);
-    transform-origin: left;
+  .pill-nav[data-theme="light"] .pill-nav__burger span {
+    background-color: var(--color-ink);
   }
 
-  .hero__nav-item[data-active="true"] {
-    opacity: 1;
+  .pill-nav[data-open="true"] .pill-nav__burger span:first-child {
+    transform: translateY(3.75px) rotate(45deg);
   }
 
-  .hero__nav-cta {
-    margin-left: 41px;
+  .pill-nav[data-open="true"] .pill-nav__burger span:last-child {
+    transform: translateY(-3.75px) rotate(-45deg);
   }
 
   @media (max-width: 1199px) {
-    .hero__nav-cta {
-      margin-left: 0;
+    .pill-nav__burger {
+      display: flex;
     }
   }
 
-  .hero__nav-cta-button {
-    background-color: var(--color-bark-brown);
-    color: var(--color-warm-cream);
-    border-radius: 36px;
-    padding: 14px 24px;
-    font-size: 12px;
-    font-weight: 500;
-    text-transform: uppercase;
-    letter-spacing: 0;
-    border: none;
-    cursor: pointer;
-    white-space: nowrap;
-    transition: background-color 0.2s ease;
+  /* Stacked pills for the widths the row cannot hold. */
+  .pill-nav__panel {
+    display: none;
+    padding: 0 45px 16px;
   }
 
-  .hero__nav-cta-button:hover {
-    background-color: #4a3220;
+  @media (max-width: 768px) {
+    .pill-nav__panel {
+      padding-inline: 24px;
+    }
+  }
+
+  @media (max-width: 1199px) {
+    .pill-nav__panel:not([hidden]) {
+      display: block;
+    }
+  }
+
+  .pill-nav__panel ul {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .pill-nav__panel .pill-nav__pill {
+    justify-content: center;
+  }
+
+  /* The narrowest bars cannot hold brand + CTA + burger at once, so the CTA
+     travels down into the panel rather than shoving the burger off-screen. */
+  @media (max-width: 768px) {
+    .pill-nav__bar > .pill-nav__action {
+      display: none;
+    }
+  }
+
+  .pill-nav__panel .pill-nav__action {
+    display: none;
+    width: 100%;
+    margin-left: 0;
+    margin-top: 6px;
+    justify-content: center;
+  }
+
+  @media (max-width: 768px) {
+    .pill-nav__panel .pill-nav__action {
+      display: inline-flex;
+    }
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .pill-nav[data-animate="true"] .pill-nav__brand,
+    .pill-nav[data-animate="true"] .pill-nav__list > li,
+    .pill-nav[data-animate="true"] .pill-nav__action {
+      opacity: 0;
+      animation: pill-nav-in 440ms var(--pn-ease) both;
+    }
+
+    .pill-nav[data-animate="true"] .pill-nav__list > li:nth-child(1) {
+      animation-delay: 60ms;
+    }
+    .pill-nav[data-animate="true"] .pill-nav__list > li:nth-child(2) {
+      animation-delay: 110ms;
+    }
+    .pill-nav[data-animate="true"] .pill-nav__list > li:nth-child(3) {
+      animation-delay: 160ms;
+    }
+    .pill-nav[data-animate="true"] .pill-nav__list > li:nth-child(4) {
+      animation-delay: 210ms;
+    }
+    .pill-nav[data-animate="true"] .pill-nav__list > li:nth-child(5) {
+      animation-delay: 260ms;
+    }
+    .pill-nav[data-animate="true"] .pill-nav__action {
+      animation-delay: 310ms;
+    }
+
+    @keyframes pill-nav-in {
+      from {
+        opacity: 0;
+        transform: translateY(-8px);
+      }
+      to {
+        opacity: 1;
+        transform: none;
+      }
+    }
+  }
+
+  /* No sliding: a pill is either filled or it is not. */
+  @media (prefers-reduced-motion: reduce) {
+    .pill-nav,
+    .pill-nav__brand,
+    .pill-nav__pill,
+    .pill-nav__action,
+    .pill-nav__circle,
+    .pill-nav__label,
+    .pill-nav__logo,
+    .pill-nav__burger span {
+      transition: none;
+    }
+
+    .pill-nav[data-animate="true"] .pill-nav__brand,
+    .pill-nav[data-animate="true"] .pill-nav__list > li,
+    .pill-nav[data-animate="true"] .pill-nav__action {
+      opacity: 1;
+      animation: none;
+    }
   }
 
   .hero__statement {
@@ -404,60 +662,114 @@
     height: 100%;
   }
 
-  /* Wordmark band: full-bleed, scrolling right to left, forever.
-     The track carries two identical groups and shifts by exactly -50%, so the
-     second group lands on the first group's start and the loop is seamless. */
-  .hero__marquee {
+  /* Drawn wordmark - the hero headline outlines itself, then fills in.
+     Colours are theme tokens only: ember for the line it draws with, warm
+     cream for the fill that lands behind it. Half the stroke sits outside the
+     glyph, so the finished word keeps a fine ember edge. */
+  .hero__wordmark {
     position: relative;
     z-index: 10;
     flex: 0 0 auto;
-    align-self: stretch;
-    margin-inline: -45px;
-    overflow: hidden;
-    /* Fades the lettering out at both edges instead of cutting it off. */
-    mask-image: linear-gradient(
-      to right,
-      transparent 0,
-      #000 12%,
-      #000 88%,
-      transparent 100%
-    );
+    display: flex;
+    justify-content: center;
+    width: 100%;
+    max-width: min(100%, 1080px);
   }
 
-  @media (max-width: 768px) {
-    .hero__marquee {
-      margin-inline: -24px;
+  .stroke-text {
+    display: block;
+    width: 100%;
+    height: auto;
+    /* The viewBox already pads for the stroke; never clip it. */
+    overflow: visible;
+  }
+
+  /* Measured, never painted. Still laid out, so it has boxes to report. */
+  .stroke-text__measure {
+    fill: none;
+    stroke: none;
+    pointer-events: none;
+  }
+
+  /* Every glyph carries its own dash length, so a narrow letter and a wide
+     one finish together instead of one snapping and one crawling. */
+  .stroke-text__char {
+    fill: none;
+    stroke: var(--st-stroke);
+    stroke-width: var(--st-stroke-width);
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-dasharray: var(--st-dash);
+    stroke-dashoffset: var(--st-dash);
+  }
+
+  .stroke-text[data-run="true"] .stroke-text__char {
+    animation: stroke-text-draw var(--st-draw) var(--st-ease) var(--st-delay) both;
+  }
+
+  .stroke-text__fill {
+    fill: var(--st-fill);
+    stroke: none;
+  }
+
+  .stroke-text[data-fill-mode="wipe"] .stroke-text__fill {
+    clip-path: inset(0 100% 0 0);
+  }
+
+  /* A reversed stagger draws right to left, so the wipe follows it back. */
+  .stroke-text[data-fill-mode="wipe"][data-reverse="true"] .stroke-text__fill {
+    clip-path: inset(0 0 0 100%);
+  }
+
+  .stroke-text[data-fill-mode="fade"] .stroke-text__fill {
+    opacity: 0;
+  }
+
+  .stroke-text[data-run="true"][data-fill-mode="wipe"] .stroke-text__fill {
+    animation: stroke-text-wipe var(--st-fill-dur) var(--st-ease) var(--st-fill-delay) forwards;
+  }
+
+  .stroke-text[data-run="true"][data-fill-mode="fade"] .stroke-text__fill {
+    animation: stroke-text-fade var(--st-fill-dur) var(--st-ease) var(--st-fill-delay) forwards;
+  }
+
+  @keyframes stroke-text-draw {
+    to {
+      stroke-dashoffset: 0;
     }
   }
 
-  .hero__marquee-track {
-    display: flex;
-    width: max-content;
-    animation: hero-marquee 28s linear infinite;
+  @keyframes stroke-text-wipe {
+    to {
+      clip-path: inset(0 0 0 0);
+    }
   }
 
-  .hero__marquee-group {
-    display: flex;
-    flex: 0 0 auto;
+  @keyframes stroke-text-fade {
+    to {
+      opacity: 1;
+    }
   }
 
-  .hero__marquee-item {
-    display: inline-flex;
-    align-items: baseline;
-    font-family: var(--font-sans);
-    font-size: clamp(34px, 7vw, 96px);
-    font-weight: 700;
-    line-height: 1.1;
-    text-transform: uppercase;
-    letter-spacing: -0.02em;
-    color: var(--color-warm-cream);
-    white-space: nowrap;
+  /* No drawing: land on the finished word straight away. */
+  @media (prefers-reduced-motion: reduce) {
+    .stroke-text__char {
+      stroke-dashoffset: 0;
+    }
+
+    .stroke-text__fill,
+    .stroke-text[data-fill-mode="wipe"] .stroke-text__fill,
+    .stroke-text[data-fill-mode="wipe"][data-reverse="true"] .stroke-text__fill {
+      clip-path: none;
+      opacity: 1;
+    }
+
+    .stroke-text[data-run="true"] .stroke-text__char,
+    .stroke-text[data-run="true"] .stroke-text__fill {
+      animation: none;
+    }
   }
 
-  .hero__marquee-dot {
-    color: var(--color-ember-accent);
-    padding-inline: 0.32em;
-  }
 
   /* Landing page sections */
   .landing-section {
@@ -623,11 +935,19 @@
     letter-spacing: 0.1em;
     text-transform: uppercase;
     cursor: pointer;
+    /* A ring of the page's own ground, so the ember pill still reads as a solid
+       object when the scan sweeps ember-coloured light past behind it. */
+    box-shadow: 0 0 0 4px var(--color-walnut-shadow), 0 12px 28px -14px var(--color-pure-black);
     transition: opacity 0.2s ease;
   }
 
   .hero__cta:hover {
     opacity: 0.9;
+  }
+
+  .hero__cta:focus-visible {
+    outline: 2px solid var(--color-warm-cream);
+    outline-offset: 6px;
   }
 
   /* Entrance Animations */
@@ -638,8 +958,8 @@
       animation: hero-statement-in 500ms cubic-bezier(0.2, 0.7, 0.3, 1) forwards;
     }
 
-    .hero__geometry-arc,
-    .hero__geometry-line {
+    /* The grid arrives the way the hairline geometry it replaced used to. */
+    .hero__scan {
       opacity: 0;
       animation: hero-geometry-in 900ms ease-out forwards;
     }
@@ -659,23 +979,313 @@
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .hero__marquee-track,
     .hero__statement,
-    .hero__geometry-arc,
-    .hero__geometry-line {
+    .hero__scan {
       opacity: 1;
       transform: none;
       animation: none;
     }
   }
-}
 
-@keyframes hero-marquee {
-  from {
-    transform: translate3d(0, 0, 0);
+  /* ------------------------------------------------------------------ */
+  /* Ingest pipeline: upload, processing state, status pills             */
+  /* ------------------------------------------------------------------ */
+
+  /* Status pill — says where a meeting is in the pipeline. Outlined while
+     the job is moving, filled once it has stopped for a bad reason. */
+  .status-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 5px 12px;
+    border-radius: 9999px;
+    border: 1px solid var(--color-cork-border);
+    background-color: transparent;
+    color: var(--color-driftwood);
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    white-space: nowrap;
   }
-  to {
-    transform: translate3d(-50%, 0, 0);
+
+  .status-pill--active {
+    border-color: color-mix(in srgb, var(--color-ember-accent) 45%, transparent);
+    color: var(--color-ember-accent);
+  }
+
+  .status-pill--ready {
+    border-color: color-mix(in srgb, var(--color-warm-cream) 35%, transparent);
+    color: var(--color-warm-cream);
+  }
+
+  .status-pill--failed {
+    background-color: var(--color-ember-accent);
+    border-color: var(--color-ember-accent);
+    color: var(--color-walnut-shadow);
+  }
+
+  .status-pill__dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 9999px;
+    background-color: currentColor;
+    animation: status-pulse 1.6s ease-in-out infinite;
+  }
+
+  /* Light band variant, for the cream Archive section. */
+  .status-pill--cream {
+    border-color: var(--color-wheat-border);
+    color: var(--color-ink-muted);
+  }
+
+  .status-pill--cream.status-pill--active {
+    border-color: color-mix(in srgb, var(--color-ember-deep) 45%, transparent);
+    color: var(--color-ember-deep);
+  }
+
+  .status-pill--cream.status-pill--failed {
+    background-color: var(--color-ember-deep);
+    border-color: var(--color-ember-deep);
+    color: var(--color-cream-bg);
+  }
+
+  /* Progress bar — a hairline track with a solid ember fill, no gradient. */
+  .processing-bar {
+    position: relative;
+    width: 100%;
+    height: 4px;
+    border-radius: 9999px;
+    background-color: var(--color-bark-brown);
+    overflow: hidden;
+  }
+
+  /* Scaled, not resized. The engine ticks every 150ms for the whole job, so
+     this transition runs continuously - animating `width` would relayout on
+     every frame of it. scaleX is compositor-only. No radius here: the track
+     already clips to a pill, and scaling a radius would squash the caps. */
+  .processing-bar__fill {
+    width: 100%;
+    height: 100%;
+    transform: scaleX(var(--fill, 0));
+    transform-origin: left center;
+    background-color: var(--color-ember-accent);
+    /* Matches the engine tick, so the bar glides instead of stepping. */
+    transition: transform 220ms linear;
+  }
+
+  .processing-percent {
+    font-size: clamp(48px, 9vw, 88px);
+    font-weight: 500;
+    line-height: 0.9;
+    color: var(--color-warm-cream);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .processing-percent__sign {
+    font-size: 0.38em;
+    color: var(--color-ember-accent);
+    margin-left: 0.12em;
+    vertical-align: super;
+  }
+
+  .processing-failure {
+    border: 1px solid color-mix(in srgb, var(--color-ember-accent) 40%, transparent);
+    border-radius: 12px;
+    background-color: color-mix(in srgb, var(--color-ember-accent) 7%, transparent);
+    padding: clamp(20px, 3vw, 28px);
+  }
+
+  /* Stage tracker — the numbered vocabulary the archive timeline already uses. */
+  .pipeline {
+    display: flex;
+    flex-direction: column;
+    border-top: 1px solid var(--color-cork-border);
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  .pipeline__row {
+    display: grid;
+    grid-template-columns: 28px 1fr auto;
+    align-items: start;
+    gap: 16px;
+    padding: 18px 0;
+    border-bottom: 1px solid var(--color-cork-border);
+  }
+
+  .pipeline__marker {
+    display: grid;
+    place-items: center;
+    height: 22px;
+    color: var(--color-driftwood);
+  }
+
+  .pipeline__row[data-state="done"] .pipeline__marker {
+    color: var(--color-warm-cream);
+  }
+
+  .pipeline__row[data-state="active"] .pipeline__marker,
+  .pipeline__row[data-state="failed"] .pipeline__marker {
+    color: var(--color-ember-accent);
+  }
+
+  .pipeline__index {
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.1em;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .pipeline__spinner {
+    animation: pipeline-spin 1.1s linear infinite;
+  }
+
+  .pipeline__body {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 0;
+  }
+
+  .pipeline__label {
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--color-driftwood);
+  }
+
+  .pipeline__row[data-state="done"] .pipeline__label {
+    color: var(--color-warm-cream);
+  }
+
+  .pipeline__row[data-state="active"] .pipeline__label,
+  .pipeline__row[data-state="failed"] .pipeline__label {
+    color: var(--color-ember-accent);
+  }
+
+  .pipeline__description {
+    font-size: 14px;
+    line-height: 1.5;
+    color: color-mix(in srgb, var(--color-warm-cream) 55%, transparent);
+    max-width: 58ch;
+  }
+
+  .pipeline__row[data-state="pending"] .pipeline__description {
+    color: var(--color-driftwood);
+  }
+
+  .pipeline__note {
+    font-size: 9px;
+    font-weight: 500;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--color-driftwood);
+    text-align: right;
+    max-width: 22ch;
+    line-height: 1.6;
+  }
+
+  @media (max-width: 768px) {
+    .pipeline__row {
+      grid-template-columns: 28px 1fr;
+    }
+    .pipeline__note {
+      display: none;
+    }
+  }
+
+  /* Dropzone — dashed, matching the section dividers rather than a boxed input. */
+  .dropzone {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+    padding: clamp(40px, 8vw, 72px) 24px;
+    border: 1px dashed var(--color-cork-border);
+    border-radius: 12px;
+    background-color: transparent;
+    transition: border-color 180ms ease, background-color 180ms ease;
+  }
+
+  .dropzone:hover,
+  .dropzone[data-dragging="true"] {
+    border-color: var(--color-ember-accent);
+    background-color: color-mix(in srgb, var(--color-bark-brown) 22%, transparent);
+  }
+
+  .dropzone__browse {
+    border: 1px solid var(--color-warm-cream);
+    border-radius: 22.5px;
+    background-color: transparent;
+    color: var(--color-warm-cream);
+    padding: 7.5px 20px;
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: background-color 180ms ease, color 180ms ease;
+  }
+
+  .dropzone__browse:hover {
+    background-color: var(--color-warm-cream);
+    color: var(--color-walnut-shadow);
+  }
+
+  .upload-file {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    padding: 22px 24px;
+    border: 1px solid var(--color-cork-border);
+    border-radius: 12px;
+    background-color: color-mix(in srgb, var(--color-bark-brown) 28%, transparent);
+  }
+
+  .upload-error {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: var(--color-ember-accent);
+    font-size: 13px;
+    line-height: 1.5;
+  }
+
+  /* Underline-only input, per the design system's form rule. */
+  .upload-input {
+    width: 100%;
+    max-width: 46ch;
+    background-color: transparent;
+    border: none;
+    border-bottom: 1px solid var(--color-cork-border);
+    border-radius: 0;
+    color: var(--color-warm-cream);
+    font-family: var(--font-sans);
+    font-size: 16px;
+    padding: 6px 2px;
+    transition: border-color 180ms ease;
+  }
+
+  .upload-input::placeholder {
+    color: var(--color-driftwood);
+  }
+
+  .upload-input:focus {
+    outline: none;
+    border-bottom-color: var(--color-ember-accent);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .status-pill__dot,
+    .pipeline__spinner {
+      animation: none;
+    }
+    .processing-bar__fill {
+      transition: none;
+    }
   }
 }
 
@@ -694,3 +1304,624 @@
 ::-webkit-scrollbar-thumb:hover {
   background: var(--color-driftwood);
 }
+
+@keyframes status-pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.25;
+  }
+}
+
+@keyframes pipeline-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ---------------------------------------------------------------- */
+/* Playback: the transport, quote cues, and transcript lines          */
+/* ---------------------------------------------------------------- */
+
+@layer utilities {
+  /* Keeps the transport reachable while the reader scrolls the memory. */
+  .player-dock {
+    position: sticky;
+    top: var(--nav-height);
+    z-index: 20;
+    background-color: var(--color-walnut-shadow);
+    padding-block: 12px;
+  }
+
+  .player {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    padding: 14px 18px;
+    border: 1px solid var(--color-cork-border);
+    border-radius: 12px;
+    background-color: var(--color-walnut-shadow);
+  }
+
+  .player__toggle {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    border: 1px solid var(--color-ember-accent);
+    border-radius: 9999px;
+    background-color: var(--color-ember-accent);
+    color: var(--color-warm-cream);
+    cursor: pointer;
+    transition: background-color 150ms ease, border-color 150ms ease, color 150ms ease;
+  }
+
+  .player__toggle:hover:not(:disabled) {
+    background-color: transparent;
+    color: var(--color-ember-accent);
+  }
+
+  .player__toggle:active:not(:disabled) {
+    transform: scale(0.96);
+  }
+
+  .player__toggle:disabled {
+    border-color: var(--color-cork-border);
+    background-color: transparent;
+    color: var(--color-driftwood);
+    cursor: not-allowed;
+  }
+
+  .player__body {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-width: 0;
+  }
+
+  .player__timeline {
+    position: relative;
+    display: flex;
+    align-items: center;
+    height: 18px;
+  }
+
+  .player__track {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    height: 3px;
+    border-radius: 9999px;
+    background-color: var(--color-cork-border);
+  }
+
+  .player__fill {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    border-radius: 9999px;
+    background-color: var(--color-ember-accent);
+  }
+
+  /* Where the pulled quotes sit, so the timeline reads as an index. */
+  .player__marker {
+    position: absolute;
+    top: 50%;
+    width: 2px;
+    height: 12px;
+    transform: translate(-50%, -50%);
+    background-color: color-mix(in srgb, var(--color-warm-cream) 55%, transparent);
+    pointer-events: none;
+  }
+
+  .player__scrub {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    height: 18px;
+    margin: 0;
+    appearance: none;
+    -webkit-appearance: none;
+    background: transparent;
+    cursor: pointer;
+  }
+
+  .player__scrub::-webkit-slider-runnable-track {
+    height: 18px;
+    background: transparent;
+  }
+
+  .player__scrub::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 13px;
+    height: 13px;
+    margin-top: 2.5px;
+    border: none;
+    border-radius: 9999px;
+    background-color: var(--color-warm-cream);
+  }
+
+  .player__scrub::-moz-range-track {
+    height: 18px;
+    background: transparent;
+  }
+
+  .player__scrub::-moz-range-thumb {
+    width: 13px;
+    height: 13px;
+    border: none;
+    border-radius: 9999px;
+    background-color: var(--color-warm-cream);
+  }
+
+  .player__scrub:focus-visible {
+    outline: 2px solid var(--color-ember-accent);
+    outline-offset: 4px;
+    border-radius: 9999px;
+  }
+
+  .player__meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .player__note {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--color-driftwood);
+    font-size: 9px;
+    font-weight: 500;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+  }
+
+  .player__time {
+    color: var(--color-driftwood);
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.15em;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+
+  /* "Play this quote" - a ghost button carrying its own timestamp. */
+  .quote-cue {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    align-self: flex-start;
+    padding: 4px 12px;
+    border: 1px solid var(--color-cork-border);
+    border-radius: 22.5px;
+    background-color: transparent;
+    color: var(--color-driftwood);
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    font-variant-numeric: tabular-nums;
+    cursor: pointer;
+    transition: color 150ms ease, border-color 150ms ease;
+  }
+
+  .quote-cue:hover,
+  .quote-cue:focus-visible {
+    border-color: var(--color-ember-accent);
+    color: var(--color-ember-accent);
+  }
+
+  .transcript-line {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    width: 100%;
+    padding: 6px 0 6px 16px;
+    border: none;
+    border-left: 1px solid color-mix(in srgb, var(--color-cork-border) 50%, transparent);
+    background-color: transparent;
+    text-align: left;
+    cursor: pointer;
+    transition: background-color 150ms ease, border-color 150ms ease;
+  }
+
+  .transcript-line:hover {
+    border-left-color: var(--color-driftwood);
+    background-color: color-mix(in srgb, var(--color-warm-cream) 4%, transparent);
+  }
+
+  .transcript-line--active {
+    border-left-color: var(--color-ember-accent);
+    background-color: color-mix(in srgb, var(--color-ember-accent) 9%, transparent);
+  }
+}
+
+/* ---------------------------------------------------------------- */
+/* Speaker naming: voice cards, the directory, and the name field     */
+/* ---------------------------------------------------------------- */
+
+@layer utilities {
+  .voice-card {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 16px 18px;
+    border: 1px solid var(--color-cork-border);
+    border-radius: 12px;
+    background-color: color-mix(in srgb, var(--color-bark-brown) 8%, transparent);
+  }
+
+  /* An unnamed voice is unfinished business, and reads as such. */
+  .voice-card--unnamed {
+    border-color: color-mix(in srgb, var(--color-ember-accent) 40%, transparent);
+    background-color: color-mix(in srgb, var(--color-ember-accent) 5%, transparent);
+  }
+
+  .voice-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 12px 0;
+  }
+
+  .voice-form {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 12px;
+  }
+
+  /* Inputs stay square with a single rule under them, per the type system. */
+  /* Holds a person's name, so it is left exactly as they type it. The caps
+     treatment on speaker labels is styling and lives at the display site. */
+  .voice-input {
+    flex: 1;
+    min-width: 200px;
+    padding: 6px 0;
+    border: none;
+    border-bottom: 1px solid var(--color-cork-border);
+    border-radius: 0;
+    background-color: transparent;
+    color: var(--color-warm-cream);
+    font-family: var(--font-sans);
+    font-size: 14px;
+    font-weight: 400;
+    transition: border-color 150ms ease;
+  }
+
+  .voice-input::placeholder {
+    color: var(--color-driftwood);
+  }
+
+  .voice-input:focus {
+    outline: none;
+    border-bottom-color: var(--color-ember-accent);
+  }
+
+  .voice-save {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 16px;
+    border: 1px solid var(--color-warm-cream);
+    border-radius: 22.5px;
+    background-color: transparent;
+    color: var(--color-warm-cream);
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: background-color 150ms ease, border-color 150ms ease, color 150ms ease;
+  }
+
+  .voice-save:hover:not(:disabled) {
+    background-color: color-mix(in srgb, var(--color-warm-cream) 12%, transparent);
+  }
+
+  .voice-save:disabled {
+    border-color: var(--color-cork-border);
+    color: var(--color-driftwood);
+    cursor: not-allowed;
+  }
+
+  .voice-ghost {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    align-self: flex-start;
+    padding: 5px 14px;
+    border: 1px solid var(--color-cork-border);
+    border-radius: 22.5px;
+    background-color: transparent;
+    color: var(--color-driftwood);
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: color 150ms ease, border-color 150ms ease;
+  }
+
+  .voice-ghost:hover,
+  .voice-ghost:focus-visible {
+    border-color: var(--color-ember-accent);
+    color: var(--color-ember-accent);
+  }
+}
+
+/* ---------------------------------------------------------------- */
+/* Settings controls: rows, selects, switches                        */
+/* ---------------------------------------------------------------- */
+
+@layer utilities {
+  .setting-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 10px 0;
+  }
+
+  /* Stacks the control under its label on narrow screens. */
+  .setting-row--stack {
+    align-items: flex-end;
+  }
+
+  .setting-select {
+    flex-shrink: 0;
+    min-width: 220px;
+    padding: 6px 24px 6px 0;
+    border: none;
+    border-bottom: 1px solid var(--color-cork-border);
+    border-radius: 0;
+    background-color: transparent;
+    color: var(--color-warm-cream);
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    cursor: pointer;
+    appearance: none;
+    -webkit-appearance: none;
+    /* Caret drawn in, since the native one cannot be recoloured. */
+    background-image: linear-gradient(45deg, transparent 50%, var(--color-driftwood) 50%),
+      linear-gradient(135deg, var(--color-driftwood) 50%, transparent 50%);
+    background-position: right 9px center, right 4px center;
+    background-size: 5px 5px, 5px 5px;
+    background-repeat: no-repeat;
+    transition: border-color 150ms ease;
+  }
+
+  .setting-select:hover,
+  .setting-select:focus {
+    border-bottom-color: var(--color-ember-accent);
+    outline: none;
+  }
+
+  /* The options list is drawn by the OS, so it needs its own colours. */
+  .setting-select option {
+    background-color: var(--color-walnut-shadow);
+    color: var(--color-warm-cream);
+  }
+
+  .setting-switch {
+    flex-shrink: 0;
+    min-width: 64px;
+    padding: 6px 16px;
+    border: 1px solid var(--color-cork-border);
+    border-radius: 9999px;
+    background-color: transparent;
+    color: var(--color-driftwood);
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: background-color 150ms ease, border-color 150ms ease, color 150ms ease;
+  }
+
+  .setting-switch:hover {
+    border-color: var(--color-driftwood);
+  }
+
+  .setting-switch--on {
+    border-color: var(--color-ember-accent);
+    background-color: var(--color-ember-accent);
+    color: var(--color-warm-cream);
+  }
+
+  @media (max-width: 640px) {
+    .setting-select {
+      min-width: 100%;
+    }
+  }
+}
+
+/* ---------------------------------------------------------------- */
+/* User content vs chrome                                            */
+/* ---------------------------------------------------------------- */
+
+@layer utilities {
+  /*
+   * Meeting titles are typed by people and arrive however they arrive -
+   * "q3 planning sync" as often as anything else. The data keeps what was
+   * typed; sentence case is a display decision, so it happens here. Only the
+   * opening letter is touched, which leaves "iOS" and "WebAudio" alone.
+   */
+  .user-title {
+    text-transform: none;
+  }
+
+  .user-title::first-letter {
+    text-transform: uppercase;
+  }
+}
+
+/* ---------------------------------------------------------------- */
+/* Commitments: the cross-meeting list of what you owe                */
+/* ---------------------------------------------------------------- */
+
+@layer utilities {
+  /* Filter toggle on the dark band. */
+  .filter-chip {
+    padding: 6px 14px;
+    border: 1px solid var(--color-cork-border);
+    border-radius: 9999px;
+    background-color: transparent;
+    color: var(--color-driftwood);
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: border-color 150ms ease, color 150ms ease, background-color 150ms ease;
+  }
+
+  .filter-chip:hover {
+    border-color: var(--color-driftwood);
+    color: var(--color-warm-cream);
+  }
+
+  .filter-chip[data-active="true"] {
+    border-color: var(--color-ember-accent);
+    background-color: var(--color-ember-accent);
+    color: var(--color-warm-cream);
+  }
+
+  .commitment {
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+    padding: 18px 0;
+    border-bottom: 1px solid color-mix(in srgb, var(--color-cork-border) 60%, transparent);
+  }
+
+  .commitment:first-child {
+    border-top: 1px solid color-mix(in srgb, var(--color-cork-border) 60%, transparent);
+  }
+
+  .commitment__tick {
+    flex-shrink: 0;
+    margin-top: 1px;
+    padding: 0;
+    border: none;
+    background: transparent;
+    color: var(--color-driftwood);
+    cursor: pointer;
+    transition: color 150ms ease;
+  }
+
+  .commitment__tick:hover {
+    color: var(--color-ember-accent);
+  }
+
+  .commitment--done .commitment__tick {
+    color: var(--color-ember-accent);
+  }
+
+  /* The promise itself is the user's own words, so it stays mixed case. */
+  .commitment__item {
+    color: var(--color-warm-cream);
+    font-size: 16px;
+    font-weight: 400;
+    line-height: 1.45;
+  }
+
+  .commitment--done .commitment__item {
+    color: var(--color-driftwood);
+    text-decoration: line-through;
+    text-decoration-color: color-mix(in srgb, var(--color-driftwood) 60%, transparent);
+  }
+
+  /* Which conversation this came out of. */
+  .commitment__source {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    max-width: 34ch;
+    padding: 0;
+    border: none;
+    background: transparent;
+    color: var(--color-driftwood);
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.05em;
+    text-align: right;
+    cursor: pointer;
+    transition: color 150ms ease;
+  }
+
+  .commitment__source:hover {
+    color: var(--color-ember-accent);
+  }
+
+  @media (max-width: 700px) {
+    .commitment {
+      flex-wrap: wrap;
+    }
+
+    .commitment__source {
+      max-width: 100%;
+      margin-left: 36px;
+      text-align: left;
+    }
+  }
+}
+
+@layer utilities {
+  /* Landing-page pointer at the commitments section. */
+  .owed-strip {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    width: 100%;
+    padding: 18px 22px;
+    border: 1px solid color-mix(in srgb, var(--color-ember-accent) 35%, transparent);
+    border-radius: 12px;
+    background-color: color-mix(in srgb, var(--color-ember-accent) 6%, transparent);
+    color: var(--color-warm-cream);
+    cursor: pointer;
+    text-align: left;
+    transition: border-color 150ms ease, background-color 150ms ease;
+  }
+
+  .owed-strip:hover {
+    border-color: var(--color-ember-accent);
+    background-color: color-mix(in srgb, var(--color-ember-accent) 12%, transparent);
+  }
+
+  .owed-strip__count {
+    flex-shrink: 0;
+    color: var(--color-ember-accent);
+    font-size: 28px;
+    font-weight: 500;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .owed-strip__label {
+    flex: 1;
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+  }
+}
+

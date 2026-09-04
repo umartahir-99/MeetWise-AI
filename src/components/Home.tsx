@@ -1,43 +1,75 @@
-import React from "react";
+import React, { useMemo } from "react";
 import type { Meeting } from "../mockData";
 import { ArrowRight, ArrowUpRight, Clock, UsersThree } from "@phosphor-icons/react";
 import { Hero } from "./Hero";
 import { motion } from "motion/react";
 import { cardHover, cardTap, fadeUp, staggerContainer, viewportOnce } from "../motion";
+import { isReadable, pendingGist } from "../processing";
+import { byNewestFirst, formatDurationLabel, formatMeetingDate } from "../datetime";
+import { StatusPill } from "./StatusPill";
 
 interface HomeProps {
   meetings: Meeting[];
   onSelectMeeting: (id: string) => void;
-  onStartCapture: () => void;
+  onStartUpload: () => void;
   onBrowseAll: () => void;
+  /** Open action items owned by whoever is signed in. */
+  openCommitments: number;
+  onViewCommitments: () => void;
 }
 
-export const Home: React.FC<HomeProps> = ({ meetings, onSelectMeeting, onStartCapture, onBrowseAll }) => {
-  // Get the 3 most recent meetings
-  const recentMeetings = meetings.slice(0, 3);
+export const Home: React.FC<HomeProps> = ({
+  meetings,
+  onSelectMeeting,
+  onStartUpload,
+  onBrowseAll,
+  openCommitments,
+  onViewCommitments,
+}) => {
+  // The 3 most recent meetings, by when they actually happened. Anything still
+  // in the pipeline is pinned to the front, so a freshly uploaded recording
+  // does not vanish down the list just because it was recorded a while ago.
+  const recentMeetings = useMemo(
+    () =>
+      [...meetings]
+        .sort((a, b) => Number(isReadable(a)) - Number(isReadable(b)) || byNewestFirst(a, b))
+        .slice(0, 3),
+    [meetings]
+  );
 
   return (
     <div className="flex flex-col w-full">
       {/* Hero Section - exactly 100vh */}
-      <Hero onStartCapture={onStartCapture} />
+      <Hero onStartUpload={onStartUpload} />
 
       {/* Recent Meetings Section */}
       <section className="pt-20 pb-0 px-6 md:px-12 max-w-[1200px] mx-auto flex flex-col gap-18 w-full">
         {/* Dashed Line separator */}
         <div className="divider-dashed" />
 
+        {/* The one thing worth surfacing before the archive: outstanding promises. */}
+        {openCommitments > 0 && (
+          <button type="button" onClick={onViewCommitments} className="owed-strip">
+            <span className="owed-strip__count">{openCommitments}</span>
+            <span className="owed-strip__label">
+              {openCommitments === 1 ? "thing you owe" : "things you owe"}, across your meetings
+            </span>
+            <ArrowRight size={16} className="shrink-0" />
+          </button>
+        )}
+
         {/* Recent Meetings Grid */}
         <div className="flex flex-col gap-9">
           <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
             <div>
-              <p className="text-[10px] font-medium tracking-[0.25em] text-[#dc5000] mb-3">
+              <p className="text-[10px] font-medium tracking-[0.25em] text-ember-accent mb-3">
                 MEMORY INDEX / 2026
               </p>
-              <h2 className="text-subheading-custom text-[#ffedd7] tracking-[0.15em]">
+              <h2 className="text-subheading-custom text-warm-cream tracking-[0.15em]">
                 RECENT ENTRIES
               </h2>
             </div>
-            <span className="text-[10px] font-medium tracking-[0.25em] text-[#6c5f51]">
+            <span className="text-[10px] font-medium tracking-[0.25em] text-driftwood">
               SHOWING 03 OF {meetings.length.toString().padStart(2, "0")}
             </span>
           </div>
@@ -56,48 +88,53 @@ export const Home: React.FC<HomeProps> = ({ meetings, onSelectMeeting, onStartCa
                 variants={fadeUp}
                 whileHover={cardHover}
                 whileTap={cardTap}
-                className={`group border border-[#40372e] rounded-[12px] bg-[#100904] hover:bg-[#382416]/20 hover:border-[#6c5f51] transition-colors cursor-pointer flex flex-col ${index === 0 ? "lg:row-span-2 p-6 md:p-9 justify-between min-h-[360px]" : "p-6 md:p-7"}`}
+                className={`group border border-cork-border rounded-[12px] bg-walnut-shadow hover:bg-bark-brown/20 hover:border-driftwood transition-colors cursor-pointer flex flex-col ${index === 0 ? "lg:row-span-2 p-6 md:p-9 justify-between min-h-[360px]" : "p-6 md:p-7"}`}
               >
                 <div className="flex items-start justify-between gap-5">
-                  <span className="text-[11px] font-medium tracking-[0.2em] text-[#dc5000]">
-                    {String(index + 1).padStart(2, "0")}
-                  </span>
+                  <div className="flex items-center gap-3">
+                    <span className="text-[11px] font-medium tracking-[0.2em] text-ember-accent">
+                      {String(index + 1).padStart(2, "0")}
+                    </span>
+                    {!isReadable(meeting) && <StatusPill status={meeting.status} />}
+                  </div>
                   <ArrowUpRight
                     size={20}
                     weight="light"
-                    className="text-[#6c5f51] group-hover:text-[#dc5000] group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all"
+                    className="text-driftwood group-hover:text-ember-accent group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all"
                   />
                 </div>
 
                 <div className="flex flex-col gap-5 mt-10 lg:mt-0">
-                  <span className="text-[11px] font-medium tracking-[0.15em] text-[#6c5f51]">
-                    {meeting.date}
+                  <span className="text-[11px] font-medium tracking-[0.15em] text-driftwood">
+                    {formatMeetingDate(meeting.startedAt)}
                   </span>
-                  <h3 className={`${index === 0 ? "text-heading-sm-custom md:text-[32px]" : "text-heading-sm-custom md:text-[23px]"} text-[#ffedd7] group-hover:text-[#ffedd7] transition-colors max-w-[26ch]`}>
+                  <h3 className={`${index === 0 ? "text-heading-sm-custom md:text-[32px]" : "text-heading-sm-custom md:text-[23px]"} text-warm-cream group-hover:text-warm-cream transition-colors max-w-[26ch] user-title`}>
                     {meeting.title}
                   </h3>
-                  <p className={`${index === 0 ? "text-body-custom" : "text-[16px] leading-[1.45]"} text-[#ffedd7] max-w-[65ch] font-normal font-sans`}>
-                    {meeting.gist}
+                  <p className={`${index === 0 ? "text-body-custom" : "text-[16px] leading-[1.45]"} text-warm-cream max-w-[65ch] font-normal font-sans`}>
+                    {isReadable(meeting) ? meeting.gist : pendingGist(meeting.status)}
                   </p>
                 </div>
 
-                <div className="flex flex-wrap items-center gap-x-5 gap-y-3 mt-8 pt-5 border-t border-[#40372e]">
-                  <span className="inline-flex items-center gap-2 text-[10px] font-medium tracking-[0.15em] text-[#6c5f51]">
-                    <Clock size={14} weight="light" />
-                    {meeting.duration}
-                  </span>
-                  <span className="inline-flex items-center gap-2 text-[10px] font-medium tracking-[0.15em] text-[#6c5f51]">
-                    <UsersThree size={14} weight="light" />
-                    {meeting.participants.length} VOICES
-                  </span>
-                  <div className="flex items-center gap-2 ml-auto">
-                    {meeting.tags.slice(0, 2).map((tag) => (
-                      <span key={tag} className="text-[9px] font-medium tracking-[0.15em] text-[#ffedd7]/70 border border-[#40372e] rounded-full px-2.5 py-1">
-                        {tag}
-                      </span>
-                    ))}
+                {isReadable(meeting) && (
+                  <div className="flex flex-wrap items-center gap-x-5 gap-y-3 mt-8 pt-5 border-t border-cork-border">
+                    <span className="inline-flex items-center gap-2 text-[10px] font-medium tracking-[0.15em] text-driftwood">
+                      <Clock size={14} weight="light" />
+                      {formatDurationLabel(meeting.durationMs)}
+                    </span>
+                    <span className="inline-flex items-center gap-2 text-[10px] font-medium tracking-[0.15em] text-driftwood">
+                      <UsersThree size={14} weight="light" />
+                      {meeting.speakers.length} VOICES
+                    </span>
+                    <div className="flex items-center gap-2 ml-auto">
+                      {meeting.tags.slice(0, 2).map((tag) => (
+                        <span key={tag} className="text-[9px] font-medium tracking-[0.15em] text-warm-cream/70 border border-cork-border rounded-full px-2.5 py-1 uppercase">
+                          {tag}
+                        </span>
+                      ))}
+                    </div>
                   </div>
-                </div>
+                )}
               </motion.div>
             ))}
           </motion.div>
@@ -109,7 +146,7 @@ export const Home: React.FC<HomeProps> = ({ meetings, onSelectMeeting, onStartCa
             whileHover={{ x: 6 }}
             whileTap={{ scale: 0.97 }}
             transition={{ type: "spring", stiffness: 400, damping: 25 }}
-            className="group flex items-center gap-3 self-start text-[12px] font-medium tracking-[0.2em] text-[#dc5000] uppercase cursor-pointer hover:underline"
+            className="group flex items-center gap-3 self-start text-[12px] font-medium tracking-[0.2em] text-ember-accent uppercase cursor-pointer hover:underline"
           >
             <span>BROWSE THE FULL ARCHIVE</span>
             <ArrowRight size={14} />

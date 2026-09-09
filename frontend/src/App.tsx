@@ -22,6 +22,11 @@ import { useProcessingEngine } from "./useProcessingEngine";
 import { useSmoothScroll } from "./useSmoothScroll";
 import { isReadable } from "./processing";
 import { MotionConfig } from "motion/react";
+import type { User as AuthUser } from "@supabase/supabase-js";
+import { SUPABASE_CONFIGURED, supabase } from "./lib/supabase";
+import { useSession } from "./useSession";
+import { Auth, SupabaseNotConfigured } from "./components/Auth";
+import { loadProfile, loadSettings, renameAccount, saveSettings } from "./api/settings";
 
 /** Landing sections, in the order they appear down the page. */
 const SECTIONS = ["home", "owed", "meetings", "ask", "settings"] as const;
@@ -40,7 +45,7 @@ const NAV_ITEMS: PillNavItem[] = [
 /** Full-screen views that replace the landing page entirely. */
 type View = "landing" | "upload" | "processing" | "live" | "detail";
 
-function AppShell() {
+function AppShell({ user }: { user: AuthUser }) {
   const [meetings, setMeetings] = useState<Meeting[]>(MOCK_MEETINGS);
   const [view, setView] = useState<View>("landing");
   const [selectedMeetingId, setSelectedMeetingId] = useState<string | null>(null);
@@ -55,15 +60,45 @@ function AppShell() {
 
   const speakers = useMemo(() => createSpeakerResolver(people, voices), [people, voices]);
 
-  // Which models run, in what language, and how long anything is kept.
+  // Which models run, in what language, and how long anything is kept. The
+  // defaults are only what is shown until the row arrives from the database -
+  // they are the same values as the column defaults, so the swap is invisible.
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
+
+  // The account name, which lives in `profiles` rather than in the archive.
+  // Null while it is still being fetched, so the fallback below can tell that
+  // apart from a name that genuinely is the seeded one.
+  const [profileName, setProfileName] = useState<string | null>(null);
+
+  // Both rows exist from the moment the account does - the `handle_new_user`
+  // trigger writes them - so this is a plain read with no create-if-missing
+  // dance. They are fetched together because a half-loaded settings screen is
+  // worse than a slightly later one.
+  useEffect(() => {
+    let live = true;
+    Promise.all([loadProfile(user.id), loadSettings(user.id)])
+      .then(([profile, saved]) => {
+        if (!live) return;
+        setProfileName(profile.name);
+        setSettings(saved);
+      })
+      .catch((failure) => console.error("Could not load your account", failure));
+    return () => {
+      live = false;
+    };
+  }, [user.id]);
   // Memoised so the fallback is not a fresh object on every render - `account`
   // is a prop on two sections, and a new identity each time defeats any
   // memoisation below it.
-  const account = useMemo(
-    () => people[CURRENT_USER_ID] ?? { id: CURRENT_USER_ID, name: "YOU" },
-    [people]
-  );
+  //
+  // The *name* is already the real one from `profiles`. The *id* is still the
+  // fixture's, because the archive it indexes into is still `MOCK_MEETINGS` -
+  // swapping it now would empty the Owed list rather than fill it. Both halves
+  // become the signed-in user's at M2, when the archive itself moves.
+  const account = useMemo(() => {
+    const base = people[CURRENT_USER_ID] ?? { id: CURRENT_USER_ID, name: "YOU" };
+    return profileName ? { ...base, name: profileName } : base;
+  }, [people, profileName]);
   const [activeSection, setActiveSection] = useState<SectionId>("home");
 
   // Where to scroll back to when returning from a full-screen view.
@@ -248,14 +283,31 @@ function AppShell() {
     );
   };
 
-  const handleChangeSettings = (patch: Partial<AppSettings>) =>
+  /**
+   * A settings change, applied locally and then written.
+   *
+   * Local first because a dropdown that waits for a round trip before it moves
+   * feels broken; only the patch is sent, so two settings changed in two tabs
+   * do not overwrite each other.
+   */
+  const handleChangeSettings = (patch: Partial<AppSettings>) => {
     setSettings((prev) => ({ ...prev, ...patch }));
+    saveSettings(user.id, patch).catch((failure) =>
+      console.error("Could not save that setting", failure)
+    );
+  };
 
   /** Your own display name, which is also the name your voice resolves to. */
   const handleRenameAccount = (rawName: string) => {
     const name = rawName.trim();
     if (!name) return;
+    setProfileName(name);
+    // Also written into the local directory so the voice this account owns
+    // re-resolves immediately, the same way naming any other voice does.
     setPeople((prev) => ({ ...prev, [CURRENT_USER_ID]: { id: CURRENT_USER_ID, name } }));
+    renameAccount(user.id, name).catch((failure) =>
+      console.error("Could not save your name", failure)
+    );
   };
 
   /** Retention, actually applied: drop everything past the window. */
@@ -468,6 +520,8 @@ function AppShell() {
             onPurgeExpired={handlePurgeExpired}
             onExport={handleExport}
             onClearArchive={handleClearArchive}
+            accountEmail={user.email ?? ""}
+            onSignOut={() => supabase.auth.signOut()}
           />
         </section>
       </main>
@@ -481,12 +535,43 @@ function AppShell() {
   );
 }
 
+/**
+ * Nothing below this renders without a session.
+ *
+ * The gate sits in its own component rather than at the top of `AppShell`
+ * because `AppShell` is all hooks - an early return above them is the one thing
+ * React does not allow. Keeping it here also means the whole archive unmounts
+ * on sign-out, so no previous user's state can survive into the next session.
+ */
+function Root() {
+  const { session, user, loading } = useSession();
+
+  if (!SUPABASE_CONFIGURED) return <SupabaseNotConfigured />;
+
+  // Held rather than shown as the sign-in page: a returning user has a session
+  // in local storage, and flashing the login screen before reading it is a lie
+  // about whether they are signed in.
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-walnut-shadow flex items-center justify-center">
+        <span className="text-[10px] font-medium tracking-[0.25em] text-driftwood uppercase">
+          OPENING YOUR ARCHIVE…
+        </span>
+      </div>
+    );
+  }
+
+  if (!session || !user) return <Auth />;
+
+  return <AppShell user={user} />;
+}
+
 // reducedMotion="user" makes every motion component below respect the
 // OS "reduce motion" setting without each one having to check.
 function App() {
   return (
     <MotionConfig reducedMotion="user">
-      <AppShell />
+      <Root />
     </MotionConfig>
   );
 }

@@ -12,7 +12,7 @@ In Future, i will integrate Live meeting AI Bot in meetings, where the bot can j
 
 Who it is for?
 
-Basically it is for those who have to attend multiple meetings online throug different platforms. For those it will be better option to adopt as it provides multiple facilities at a time.
+Basically it is for those who have to attend multiple meetings online through different platforms. For those it will be better option to adopt as it provides multiple facilities at a time.
 
 
 

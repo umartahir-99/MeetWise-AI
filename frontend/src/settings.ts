@@ -30,9 +30,9 @@ export interface ModelOption {
 /** Speech to text with diarization. This is the stage that separates voices. */
 export const TRANSCRIPTION_MODELS: ModelOption[] = [
   {
-    id: "assemblyai-universal-2",
-    name: "ASSEMBLYAI UNIVERSAL-2",
-    note: "Balanced. Strongest punctuation and speaker separation on long meetings.",
+    id: "gladia-solaria-3",
+    name: "GLADIA SOLARIA-3",
+    note: "Best accuracy, diarization included. The free tier covers real use.",
   },
   {
     id: "deepgram-nova-3",
@@ -49,19 +49,19 @@ export const TRANSCRIPTION_MODELS: ModelOption[] = [
 /** The pass that turns a transcript into topics, decisions, owners and quotes. */
 export const ANALYSIS_MODELS: ModelOption[] = [
   {
-    id: "claude-opus-5",
-    name: "CLAUDE OPUS 5",
-    note: "Deepest reading. Best at decisions that were implied rather than stated.",
+    id: "gemini-3-flash",
+    name: "GEMINI 3 FLASH",
+    note: "Balanced, with a generous free tier. The sensible default.",
   },
   {
-    id: "claude-sonnet-5",
-    name: "CLAUDE SONNET 5",
-    note: "Most of the quality at a fraction of the cost. A sensible default at volume.",
-  },
-  {
-    id: "claude-haiku-4-5-20251001",
-    name: "CLAUDE HAIKU 4.5",
+    id: "gemini-3-1-flash-lite",
+    name: "GEMINI 3.1 FLASH-LITE",
     note: "Fastest and cheapest. Suited to short stand-ups rather than long reviews.",
+  },
+  {
+    id: "gemini-2-5-pro",
+    name: "GEMINI 2.5 PRO",
+    note: "Deepest reading. Paid — Google dropped Pro from the free tier in April 2026.",
   },
 ];
 
@@ -97,8 +97,8 @@ export const RETENTION_OPTIONS: RetentionOption[] = [
 ];
 
 export const DEFAULT_SETTINGS: AppSettings = {
-  transcriptionModel: "assemblyai-universal-2",
-  analysisModel: "claude-opus-5",
+  transcriptionModel: "gladia-solaria-3",
+  analysisModel: "gemini-3-flash",
   language: "auto",
   retentionDays: 0,
   discardAudioAfterProcessing: false,

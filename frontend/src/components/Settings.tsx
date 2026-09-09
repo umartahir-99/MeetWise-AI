@@ -2,6 +2,7 @@ import React, { useMemo, useState } from "react";
 import {
   Check,
   DownloadSimple,
+  SignOut,
   Sparkle,
   Translate,
   Trash,
@@ -36,6 +37,9 @@ interface SettingsProps {
   onPurgeExpired: () => void;
   onExport: (format: "json" | "markdown") => void;
   onClearArchive: () => void;
+  /** The address this session is signed in as. Shown, never edited here. */
+  accountEmail: string;
+  onSignOut: () => void;
 }
 
 /** Section heading, since there are now six of them. */
@@ -69,6 +73,8 @@ export const Settings: React.FC<SettingsProps> = ({
   onPurgeExpired,
   onExport,
   onClearArchive,
+  accountEmail,
+  onSignOut,
 }) => {
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [accountName, setAccountName] = useState(account.name);
@@ -155,6 +161,21 @@ export const Settings: React.FC<SettingsProps> = ({
             <button onClick={onClearArchive} className="voice-ghost shrink-0">
               <Trash size={12} />
               DELETE ALL
+            </button>
+          </div>
+
+          <div className="setting-row">
+            <div className="flex flex-col gap-1">
+              <span className="text-[12px] font-medium text-warm-cream uppercase">
+                SIGNED IN
+              </span>
+              <span className="text-[11px] text-driftwood tracking-[0.1em] lowercase">
+                {accountEmail}
+              </span>
+            </div>
+            <button onClick={onSignOut} className="voice-ghost shrink-0">
+              <SignOut size={12} />
+              SIGN OUT
             </button>
           </div>
         </section>

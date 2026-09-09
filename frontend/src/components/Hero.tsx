@@ -1,8 +1,6 @@
 import React from "react";
 import { motion } from "motion/react";
-import { Logo } from "./Logo";
 import StrokeText from "./StrokeText";
-import GridScan from "./GridScan";
 
 interface HeroProps {
   onStartUpload: () => void;
@@ -14,32 +12,6 @@ interface HeroProps {
 export const Hero: React.FC<HeroProps> = ({ onStartUpload }) => {
   return (
     <section className="hero" aria-label="Meetwise AI">
-      {/* Scanning grid - it replaces the hairline arc and stem that used to be
-          drawn here, and is the hero's only background geometry now. Colours
-          are the brand tokens, so it reads as the same cork hairline the rest
-          of the page uses, lit by an ember sweep. A scrim above it keeps the
-          emblem, wordmark and statement legible as the band passes. */}
-      <div className="hero__scan" aria-hidden="true">
-        <GridScan
-          sensitivity={0.55}
-          lineThickness={1}
-          linesColor="#40372E"
-          gridScale={0.1}
-          scanColor="#DC5000"
-          scanOpacity={0.4}
-          enablePost
-          bloomIntensity={0.6}
-          chromaticAberration={0.002}
-          noiseIntensity={0.01}
-          lineJitter={0.1}
-          scanGlow={0.5}
-          scanSoftness={2}
-          enableWebcam={false}
-          showPreview={false}
-        />
-      </div>
-      <div className="hero__scrim" aria-hidden="true" />
-
       {/* Emblem: the mark on its own, the drawn wordmark beneath it */}
       <motion.div
         className="hero__emblem"
@@ -47,7 +19,7 @@ export const Hero: React.FC<HeroProps> = ({ onStartUpload }) => {
         animate={{ opacity: 1, scale: 1 }}
         transition={{ duration: 0.7, ease: [0.2, 0.7, 0.3, 1] }}
       >
-        <Logo className="hero__emblem-mark" />
+
       </motion.div>
 
       {/* Wordmark: draws itself in ember, then fills with cream. It carries the

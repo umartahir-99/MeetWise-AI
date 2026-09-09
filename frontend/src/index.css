@@ -181,44 +181,9 @@
     min-height: calc(100vh - var(--nav-height));
     min-height: calc(100dvh - var(--nav-height));
     background-color: var(--color-walnut-shadow);
-    /* Clips the scan layer's 600px overhang only - the flow content sizes the
-       box, so nothing in it can reach this. */
+    /* The wordmark is set far wider than the viewport on a narrow screen;
+       this keeps it from pushing a horizontal scrollbar onto the page. */
     overflow: hidden;
-  }
-
-  /* The scan sits at the very back, where the hairline arc used to be. 600px is
-     its floor, so the effect still has room to read on a short viewport; the
-     hero clips whatever overhangs. */
-  .hero__scan {
-    position: absolute;
-    inset: 0;
-    z-index: 0;
-    min-height: 600px;
-    pointer-events: none;
-  }
-
-  /* Between the grid and the type. Walnut, densest where the wordmark and
-     statement land, so the sweep never fights the text for contrast and the
-     section still ends on the same ground the next one starts from. */
-  .hero__scrim {
-    position: absolute;
-    inset: 0;
-    z-index: 1;
-    pointer-events: none;
-    background:
-      radial-gradient(
-        68% 58% at 50% 54%,
-        color-mix(in srgb, var(--color-walnut-shadow) 86%, transparent) 0%,
-        color-mix(in srgb, var(--color-walnut-shadow) 58%, transparent) 52%,
-        transparent 80%
-      ),
-      linear-gradient(
-        180deg,
-        var(--color-walnut-shadow) 0%,
-        transparent 18%,
-        transparent 82%,
-        var(--color-walnut-shadow) 100%
-      );
   }
 
   @media (max-width: 768px) {
@@ -958,29 +923,16 @@
       animation: hero-statement-in 500ms cubic-bezier(0.2, 0.7, 0.3, 1) forwards;
     }
 
-    /* The grid arrives the way the hairline geometry it replaced used to. */
-    .hero__scan {
-      opacity: 0;
-      animation: hero-geometry-in 900ms ease-out forwards;
-    }
-
     @keyframes hero-statement-in {
       to {
         opacity: 1;
         transform: translateY(0);
       }
     }
-
-    @keyframes hero-geometry-in {
-      to {
-        opacity: 1;
-      }
-    }
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .hero__statement,
-    .hero__scan {
+    .hero__statement {
       opacity: 1;
       transform: none;
       animation: none;

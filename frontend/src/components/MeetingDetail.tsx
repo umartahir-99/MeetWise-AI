@@ -1,6 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import type { Meeting } from "../mockData";
-import { ownerName } from "../mockData";
 import { formatMeetingDate, formatOffsetClock, formatWhen } from "../datetime";
 import { ArrowLeft, Article, Quotes, ListChecks, CheckCircle, FileText, CaretDown, CaretUp, Play } from "@phosphor-icons/react";
 import { useMeetingAudio } from "../useMeetingAudio";
@@ -92,7 +91,7 @@ export const MeetingDetail: React.FC<MeetingDetailProps> = ({
           <span>·</span>
           <span>{formatWhen(meeting.startedAt, meeting.durationMs)}</span>
           <span>·</span>
-          <span className="uppercase">{ownerName(meeting.ownerId)}</span>
+          <span className="uppercase">{speakers.ownerNameOf(meeting.ownerId)}</span>
           <div className="flex gap-2">
             {meeting.tags.map((tag) => (
               <span

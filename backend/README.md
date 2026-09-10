@@ -54,15 +54,34 @@ Run these after anything that touches the database. Each exits non-zero on failu
 CI as they stand.
 
 ```bash
-node scripts/verify-schema.mjs      # do the row types still describe the real tables?
-node scripts/isolation-test.mjs     # can one user reach another user's rows?
-node scripts/verify-m1.mjs          # do settings and account name survive a sign-out?
+node scripts/verify-schema.mjs                    # do the row types still describe the real tables?
+node scripts/isolation-test.mjs                   # can one user reach another user's rows?
+node scripts/verify-m1.mjs                        # do settings and account name survive a sign-out?
+node scripts/verify-m2.mjs <email> <password>     # does the archive round-trip through the mapper?
 ```
+
+To get something to look at:
+
+```bash
+node scripts/seed.mjs <email> <password>          # the sample archive, for an account you own
+```
+
+The seed reads `frontend/src/mockData.ts` rather than carrying its own copy of
+the fixtures, so there is one definition of the sample archive and it cannot
+drift. It inserts through the API as the signed-in user, which means row level
+security applies to it exactly as it applies to the app — a seed that needs
+superuser to work is a seed that proves nothing.
 
 **`verify-schema.mjs`** asks the linked project for its own types and diffs the column names
 against `frontend/src/api/rows.ts`. That file is hand-written on purpose — a generated file the app
 cannot rebuild offline is a liability — and drift is the price of that choice. This is what pays
 it. Needs only the CLI login.
+
+**`verify-m2.mjs`** reads the seeded archive back through the app's own
+`mappers.ts` and compares it against the fixtures it came from, field by field,
+then runs `retrieval.ts`, `commitments.ts`, `speakers.ts` and `exportArchive.ts`
+over the result. M2's real claim is that those five screens keep working with no
+changes to their code; this is what checks it, rather than trusting it.
 
 **`isolation-test.mjs`** is the important one. It creates two throwaway accounts and proves that
 user B cannot read, forge or delete user A's rows, along with the new-user trigger and the table

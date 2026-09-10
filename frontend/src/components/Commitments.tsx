@@ -13,7 +13,8 @@ interface CommitmentsProps {
   speakers: SpeakerResolver;
   account: User;
   onSelectMeeting: (id: string) => void;
-  onToggleActionItem: (meetingId: string, index: number) => void;
+  /** Takes the item's own id: array positions shift, rows do not. */
+  onToggleActionItem: (actionItemId: string) => void;
 }
 
 const SCOPES: { id: CommitmentScope; label: string }[] = [
@@ -167,7 +168,7 @@ export const Commitments: React.FC<CommitmentsProps> = ({
                 aria-label={
                   commitment.done ? `Reopen: ${commitment.item}` : `Mark done: ${commitment.item}`
                 }
-                onClick={() => onToggleActionItem(commitment.meetingId, commitment.index)}
+                onClick={() => commitment.id && onToggleActionItem(commitment.id)}
                 className="commitment__tick"
               >
                 {commitment.done ? (

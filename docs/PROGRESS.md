@@ -15,13 +15,13 @@ is blocked and on whom, and the exact next command to run.
 |---|---|---|
 | 1 | M0a — scaffolding and migration files | **Done** |
 | 2 | M0b — link, push, prove security | **Done** — all 11 checks pass |
-| 3 | M1 — sign in, settings persist | **Code written, never run** |
-| 4 | M2a — archive reads from the database | Not started |
-| 5 | M2b/c — writes persist | Not started |
-| 6 | M3 — real uploads, Realtime status | Not started |
-| 7 | M4 — Gladia + Gemini, real AI | Not started — needs both API keys |
-| 8 | M5 — retention, audio housekeeping | Not started |
-| 9 | M6 — cross-meeting voice identity (optional) | Not started |
+| 3 | M1 — sign in, settings persist | **Done** — 12 checks pass |
+| 4 | M2 — the archive lives in the database | **Done** — 19 checks pass |
+| 5 | M3 — real uploads, Realtime status | Not started |
+| 6 | M4 — Gladia + Gemini, real AI | Not started — needs both API keys |
+| 7 | M5 — retention, audio housekeeping | Not started |
+| 8 | M6 — cross-meeting voice identity (optional) | Not started |
+
 
 ---
 
@@ -99,6 +99,29 @@ key, not an `anon` one; both names are now accepted wherever the key is read.
   repeatably.
 
 ---
+
+## The archive lives in the database
+
+`node backend/scripts/verify-m2.mjs <email> <password>` — nineteen checks, all
+passing. The ones that matter:
+
+- every seeded meeting round-trips **field for field** against the fixture it
+  came from, transcripts in time order and the archive newest first
+- `retrieval.ts`, `commitments.ts`, `speakers.ts` and `exportArchive.ts` all work
+  against database-backed meetings **with no changes to any of them**
+- renaming a voice renames it in every meeting it appears in, **with no meeting
+  row rewritten** — proven against `Meeting` objects read before the rename
+- a ticked action item stays ticked
+- export names people rather than dumping uuids
+
+Two things had to move for that last one. `ownerName()` read `MOCK_USERS`
+directly, so it is now `SpeakerResolver.ownerNameOf` — both call sites already
+had a resolver in hand. And the **account is folded into the people directory**,
+because whoever owns a recording is a person too and their name lives in
+`profiles`, not `people`. Without that a meeting's byline renders as a raw uuid.
+
+`ActionItem` gained an optional `id`, and ticking is addressed by row id rather
+than array position, exactly as TRD 4 calls for.
 
 ## Nothing is blocking
 

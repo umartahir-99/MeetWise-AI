@@ -1,5 +1,4 @@
 import type { Meeting } from "./mockData";
-import { ownerName } from "./mockData";
 import type { SpeakerResolver } from "./speakers";
 import { formatMeetingDate, formatOffsetClock, formatWhen } from "./datetime";
 
@@ -18,7 +17,7 @@ function exportedMeeting(meeting: Meeting, speakers: SpeakerResolver) {
     startedAt: meeting.startedAt,
     durationMs: meeting.durationMs,
     status: meeting.status,
-    owner: ownerName(meeting.ownerId),
+    owner: speakers.ownerNameOf(meeting.ownerId),
     participants: speakers.participants(meeting),
     tags: meeting.tags,
     gist: meeting.gist,

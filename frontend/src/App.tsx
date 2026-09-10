@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
-import { CURRENT_USER_ID, INITIAL_VOICE_DIRECTORY, MOCK_MEETINGS, MOCK_USERS } from "./mockData";
-import type { Meeting, User, VoiceDirectory } from "./mockData";
-import { createSpeakerResolver, personIdFor } from "./speakers";
+import type { Meeting } from "./mockData";
+import { createSpeakerResolver } from "./speakers";
 import { countOpen } from "./commitments";
 import type { AppSettings } from "./settings";
 import { DEFAULT_SETTINGS, expiredMeetings } from "./settings";
@@ -27,6 +26,9 @@ import { SUPABASE_CONFIGURED, supabase } from "./lib/supabase";
 import { useSession } from "./useSession";
 import { Auth, SupabaseNotConfigured } from "./components/Auth";
 import { loadProfile, loadSettings, renameAccount, saveSettings } from "./api/settings";
+import { useArchive } from "./useArchive";
+import { deleteMeetings, setActionItemDone } from "./api/meetings";
+import { forgetVoice, nameVoice } from "./api/voices";
 
 /** Landing sections, in the order they appear down the page. */
 const SECTIONS = ["home", "owed", "meetings", "ask", "settings"] as const;
@@ -46,19 +48,23 @@ const NAV_ITEMS: PillNavItem[] = [
 type View = "landing" | "upload" | "processing" | "live" | "detail";
 
 function AppShell({ user }: { user: AuthUser }) {
-  const [meetings, setMeetings] = useState<Meeting[]>(MOCK_MEETINGS);
+  // The archive, and the directory that names its voices. Both come from the
+  // database now; nothing below this line knows that, which is the point.
+  const {
+    meetings,
+    people,
+    voices,
+    loading: archiveLoading,
+    error: archiveError,
+    refresh,
+    patch: setMeetings,
+    setPeople,
+    setVoices,
+  } = useArchive(user.id);
   const [view, setView] = useState<View>("landing");
   const [selectedMeetingId, setSelectedMeetingId] = useState<string | null>(null);
   // Set when a citation names a moment, so the detail view opens on it.
   const [pendingSeekMs, setPendingSeekMs] = useState<number | undefined>(undefined);
-
-  // Who the archive knows, and which voice belongs to whom. Both sit above
-  // every view on purpose: a name given inside one meeting has to hold in all
-  // of them, so it cannot live in that meeting's own state.
-  const [people, setPeople] = useState<Record<string, User>>(MOCK_USERS);
-  const [voices, setVoices] = useState<VoiceDirectory>(INITIAL_VOICE_DIRECTORY);
-
-  const speakers = useMemo(() => createSpeakerResolver(people, voices), [people, voices]);
 
   // Which models run, in what language, and how long anything is kept. The
   // defaults are only what is shown until the row arrives from the database -
@@ -69,6 +75,26 @@ function AppShell({ user }: { user: AuthUser }) {
   // Null while it is still being fetched, so the fallback below can tell that
   // apart from a name that genuinely is the seeded one.
   const [profileName, setProfileName] = useState<string | null>(null);
+
+  // Memoised so the fallback is not a fresh object on every render - `account`
+  // is a prop on two sections, and a new identity each time defeats any
+  // memoisation below it.
+  //
+  // Both halves are the signed-in user's now: the id is theirs, so "mine" in
+  // the Owed list means the person whose voice resolves to this account, and
+  // the name comes from `profiles`.
+  const account = useMemo(
+    () => ({ id: user.id, name: profileName ?? "You" }),
+    [user.id, profileName]
+  );
+  // The account is folded into the directory, because the person who owns a
+  // recording is a person too — and their name lives in `profiles` rather than
+  // in `people`. Without this, a meeting's byline resolves to a raw uuid, and
+  // so does the owner field in an export.
+  const speakers = useMemo(
+    () => createSpeakerResolver({ ...people, [user.id]: account }, voices),
+    [people, voices, user.id, account]
+  );
 
   // Both rows exist from the moment the account does - the `handle_new_user`
   // trigger writes them - so this is a plain read with no create-if-missing
@@ -87,18 +113,6 @@ function AppShell({ user }: { user: AuthUser }) {
       live = false;
     };
   }, [user.id]);
-  // Memoised so the fallback is not a fresh object on every render - `account`
-  // is a prop on two sections, and a new identity each time defeats any
-  // memoisation below it.
-  //
-  // The *name* is already the real one from `profiles`. The *id* is still the
-  // fixture's, because the archive it indexes into is still `MOCK_MEETINGS` -
-  // swapping it now would empty the Owed list rather than fill it. Both halves
-  // become the signed-in user's at M2, when the archive itself moves.
-  const account = useMemo(() => {
-    const base = people[CURRENT_USER_ID] ?? { id: CURRENT_USER_ID, name: "YOU" };
-    return profileName ? { ...base, name: profileName } : base;
-  }, [people, profileName]);
   const [activeSection, setActiveSection] = useState<SectionId>("home");
 
   // Where to scroll back to when returning from a full-screen view.
@@ -243,14 +257,20 @@ function AppShell({ user }: { user: AuthUser }) {
     const name = rawName.trim();
     if (!name) return;
 
+    // Applied locally against the person we already know by that name, so the
+    // rename lands on screen in the same frame it was typed. When the name is
+    // new there is no id to use yet, and the reload below fills it in.
     const existing = Object.values(people).find(
-      (p) => p.name.toLowerCase() === name.toLowerCase()
+      (person) => person.name.toLowerCase() === name.toLowerCase()
     );
-    const personId = existing?.id ?? personIdFor(name);
-    if (!existing) {
-      setPeople((prev) => ({ ...prev, [personId]: { id: personId, name } }));
-    }
-    setVoices((prev) => ({ ...prev, [voicePrint]: personId }));
+    if (existing) setVoices((prev) => ({ ...prev, [voicePrint]: existing.id }));
+
+    nameVoice(user.id, voicePrint, name)
+      .then(({ personId, people: nextPeople }) => {
+        setPeople(nextPeople);
+        setVoices((prev) => ({ ...prev, [voicePrint]: personId }));
+      })
+      .catch((failure) => console.error("Could not save that name", failure));
   };
 
   /** Unlink a voice from its person. It goes back to being "SPEAKER n". */
@@ -260,26 +280,37 @@ function AppShell({ user }: { user: AuthUser }) {
       delete next[voicePrint];
       return next;
     });
+    forgetVoice(user.id, voicePrint).catch((failure) =>
+      console.error("Could not forget that voice", failure)
+    );
   };
 
   /**
    * Tick an action item off, or put it back.
    *
-   * The item lives on its meeting, so that is what gets updated - the
-   * commitments view is a projection over the archive, never a second copy.
+   * Addressed by row id rather than by position in an array: the item lives on
+   * its meeting, and the Owed list is a projection over the archive rather than
+   * a second copy of it, so an index there means nothing once anything sorts.
    */
-  const handleToggleActionItem = (meetingId: string, index: number) => {
+  const handleToggleActionItem = (actionItemId: string) => {
+    let nextDone = false;
+
     setMeetings((prev) =>
-      prev.map((m) =>
-        m.id === meetingId
-          ? {
-              ...m,
-              actionItems: m.actionItems.map((a, i) =>
-                i === index ? { ...a, done: !a.done } : a
-              ),
-            }
-          : m
-      )
+      prev.map((meeting) => {
+        if (!meeting.actionItems.some((a) => a.id === actionItemId)) return meeting;
+        return {
+          ...meeting,
+          actionItems: meeting.actionItems.map((a) => {
+            if (a.id !== actionItemId) return a;
+            nextDone = !a.done;
+            return { ...a, done: nextDone };
+          }),
+        };
+      })
+    );
+
+    setActionItemDone(actionItemId, nextDone).catch((failure) =>
+      console.error("Could not save that", failure)
     );
   };
 
@@ -314,9 +345,6 @@ function AppShell({ user }: { user: AuthUser }) {
     const name = rawName.trim();
     if (!name) return;
     setProfileName(name);
-    // Also written into the local directory so the voice this account owns
-    // re-resolves immediately, the same way naming any other voice does.
-    setPeople((prev) => ({ ...prev, [CURRENT_USER_ID]: { id: CURRENT_USER_ID, name } }));
     renameAccount(user.id, name).catch((failure) =>
       console.error("Could not save your name", failure)
     );
@@ -333,15 +361,22 @@ function AppShell({ user }: { user: AuthUser }) {
     ) {
       return;
     }
-    const ids = new Set(doomed.map((m) => m.id));
+    const ids = doomed.map((m) => m.id);
+    const doomedSet = new Set(ids);
     for (const m of doomed) {
       if (m.audioUrl) URL.revokeObjectURL(m.audioUrl);
     }
-    setMeetings((prev) => prev.filter((m) => !ids.has(m.id)));
-    if (selectedMeetingId && ids.has(selectedMeetingId)) {
+    setMeetings((prev) => prev.filter((m) => !doomedSet.has(m.id)));
+    if (selectedMeetingId && doomedSet.has(selectedMeetingId)) {
       setSelectedMeetingId(null);
       setView("landing");
     }
+    // Rows first, then a reload: if the delete fails the archive comes back
+    // intact rather than staying optimistically empty.
+    deleteMeetings(ids).catch((failure) => {
+      console.error("Could not delete those meetings", failure);
+      void refresh();
+    });
   };
 
   const handleExport = (format: "json" | "markdown") => {
@@ -352,14 +387,28 @@ function AppShell({ user }: { user: AuthUser }) {
     }
   };
 
+  /**
+   * Delete every meeting.
+   *
+   * People and voices are left standing. The names you have taught the archive
+   * are worth more than any one recording, and re-teaching them is the tedious
+   * part - so emptying the archive does not mean forgetting who everybody is.
+   */
   const handleClearArchive = () => {
-    if (confirm("DELETE EVERY MEETING AND RESTORE THE SAMPLE ARCHIVE? THIS CANNOT BE UNDONE.")) {
-      setMeetings(MOCK_MEETINGS);
-      setPeople(MOCK_USERS);
-      setVoices(INITIAL_VOICE_DIRECTORY);
-      setSelectedMeetingId(null);
-      setView("landing");
+    if (!confirm("DELETE EVERY MEETING? THIS CANNOT BE UNDONE.")) return;
+
+    const ids = meetings.map((m) => m.id);
+    for (const m of meetings) {
+      if (m.audioUrl) URL.revokeObjectURL(m.audioUrl);
     }
+    setMeetings([]);
+    setSelectedMeetingId(null);
+    setView("landing");
+
+    deleteMeetings(ids).catch((failure) => {
+      console.error("Could not clear the archive", failure);
+      void refresh();
+    });
   };
 
   // Full-screen views always open at the top - instantly, since easing a scroll
@@ -430,6 +479,40 @@ function AppShell({ user }: { user: AuthUser }) {
       <main className="flex-1 w-full flex flex-col pt-12">{children}</main>
     </div>
   );
+
+  // The archive arrives a moment after the session does. Holding the sections
+  // until it lands avoids the worse alternative: five empty states flashing
+  // "nothing here yet" at somebody who has twenty meetings.
+  if (archiveLoading) {
+    return fullScreen(
+      activeSection,
+      <div className="flex-1 flex items-center justify-center">
+        <span className="text-[10px] font-medium tracking-[0.25em] text-driftwood uppercase">
+          READING YOUR ARCHIVE…
+        </span>
+      </div>
+    );
+  }
+
+  // Only when there is nothing to fall back on. A failed refresh with meetings
+  // already on screen keeps them: stale is better than blank, and the error is
+  // in the console for whoever is debugging it.
+  if (archiveError && !meetings.length) {
+    return fullScreen(
+      activeSection,
+      <div className="flex-1 flex flex-col items-center justify-center gap-5 px-6 text-center">
+        <span className="text-[12px] font-medium tracking-[0.2em] text-ember-accent uppercase">
+          COULD NOT READ YOUR ARCHIVE
+        </span>
+        <p className="text-[13px] text-warm-cream/70 max-w-[46ch] leading-[1.6]">
+          {archiveError}
+        </p>
+        <button type="button" className="voice-ghost" onClick={() => void refresh()}>
+          TRY AGAIN
+        </button>
+      </div>
+    );
+  }
 
   if (view === "live") {
     return <LiveCapture onSaveMeeting={handleSaveMeeting} onCancel={leaveFullScreen} />;
@@ -580,7 +663,10 @@ function Root() {
 
   if (!session || !user) return <Auth />;
 
-  return <AppShell user={user} />;
+  // Keyed on the account: a different user gets a different component
+  // instance, so no state from the last session can survive into the next one
+  // — and the archive starts from its loading state rather than from theirs.
+  return <AppShell key={user.id} user={user} />;
 }
 
 // reducedMotion="user" makes every motion component below respect the

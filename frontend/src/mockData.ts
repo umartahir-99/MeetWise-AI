@@ -14,6 +14,14 @@ export interface Topic {
 }
 
 export interface ActionItem {
+  /**
+   * The row's own id, once it has one.
+   *
+   * Ticking an item off used to mean "the third element of this array", which
+   * breaks the moment anything reorders. Optional because the fixtures and the
+   * live-capture demo build items that were never rows.
+   */
+  id?: string;
   item: string;
   /** The voice that picked this up, resolved to a name for display. */
   speakerId: string;

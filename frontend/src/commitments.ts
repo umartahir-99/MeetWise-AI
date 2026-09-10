@@ -14,7 +14,15 @@ export interface Commitment {
   meetingId: string;
   meetingTitle: string;
   startedAt: string;
-  /** Position in that meeting's `actionItems`, which is how it gets ticked. */
+  /**
+   * The action item's own row id, which is how it gets ticked.
+   *
+   * Absent only for items that were never rows - the live-capture demo builds
+   * some in memory. Position is kept alongside it for display order, never for
+   * identity: an index is a fact about an array, not about a promise.
+   */
+  id?: string;
+  /** Position in that meeting's `actionItems`. */
   index: number;
   item: string;
   ownerName: string;
@@ -63,6 +71,7 @@ export function collectCommitments(
         meetingId: meeting.id,
         meetingTitle: meeting.title,
         startedAt: meeting.startedAt,
+        id: action.id,
         index,
         item: action.item,
         ownerName: speakers.nameOf(meeting, action.speakerId),

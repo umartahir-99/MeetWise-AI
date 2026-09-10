@@ -35,6 +35,15 @@ export interface SpeakerResolver {
   isNamed(meeting: Meeting, speakerId: string): boolean;
   /** Everyone who spoke, in first-appearance order. */
   participants(meeting: Meeting): string[];
+  /**
+   * Display name for whoever owns a recording.
+   *
+   * Owners are people too, so they resolve through the same directory every
+   * voice does - which is what makes a rename reach the byline on a meeting as
+   * well as the lines inside it. Falls back to the raw id, which in practice
+   * only shows for a meeting whose owner is no longer in the directory.
+   */
+  ownerNameOf(ownerId: string): string;
   /** Slots still waiting for a name. */
   unnamed(meeting: Meeting): SpeakerSlot[];
   /** How many meetings a voice has been heard in. */
@@ -113,6 +122,7 @@ export function createSpeakerResolver(
       return found ? personFor(found) !== undefined : false;
     },
     participants: (meeting) => meeting.speakers.map((s) => nameOf(meeting, s.id)),
+    ownerNameOf: (ownerId) => people[ownerId]?.name ?? ownerId,
     unnamed: (meeting) => meeting.speakers.filter((s) => personFor(s) === undefined),
     heardIn: (voicePrint, meetings) =>
       meetings.filter((m) => m.speakers.some((s) => s.voicePrint === voicePrint)).length,

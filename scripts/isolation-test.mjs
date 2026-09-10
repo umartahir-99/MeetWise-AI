@@ -34,9 +34,11 @@ const env = Object.fromEntries(
 );
 
 const url = env.VITE_SUPABASE_URL;
-const key = env.VITE_SUPABASE_ANON_KEY;
+// Either name: a project issues an "anon" key or a "publishable" one.
+const key = env.VITE_SUPABASE_ANON_KEY ?? env.VITE_SUPABASE_PUBLISHABLE_KEY;
 if (!url || !key) {
-  console.error("FAIL — frontend/.env.local is missing VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY");
+  console.error("FAIL — frontend/.env.local needs VITE_SUPABASE_URL and one of");
+  console.error("       VITE_SUPABASE_ANON_KEY / VITE_SUPABASE_PUBLISHABLE_KEY");
   process.exit(1);
 }
 
@@ -51,8 +53,12 @@ if (key.includes("PASTE_") || key === url.replace(/^https:\/\//, "").split(".")[
 }
 
 const stamp = Date.now();
-const A = { email: `iso-a-${stamp}@meetwise.test`, password: `pw-a-${stamp}!` };
-const B = { email: `iso-b-${stamp}@meetwise.test`, password: `pw-b-${stamp}!` };
+// Supabase validates deliverability and rejects reserved domains (.test,
+// example.com), so the throwaway pair has to sit on a domain that resolves.
+// No mail is ever sent: confirmation is off, and these accounts are deleted
+// by nothing — they simply accumulate in a project only used for testing.
+const A = { email: `iso-a-${stamp}@gmail.com`, password: `pw-a-${stamp}!` };
+const B = { email: `iso-b-${stamp}@gmail.com`, password: `pw-b-${stamp}!` };
 
 const client = () => createClient(url, key, { auth: { persistSession: false } });
 

@@ -14,7 +14,7 @@ is blocked and on whom, and the exact next command to run.
 | Step | Milestone | State |
 |---|---|---|
 | 1 | M0a — scaffolding and migration files | **Done** |
-| 2 | M0b — link, push, prove security | **Blocked** — needs the anon key |
+| 2 | M0b — link, push, prove security | **Done** — all 11 checks pass |
 | 3 | M1 — sign in, settings persist | **Code written, never run** |
 | 4 | M2a — archive reads from the database | Not started |
 | 5 | M2b/c — writes persist | Not started |
@@ -68,32 +68,42 @@ real schema and needs only the CLI login:
   `scripts/verify-schema.mjs` re-runs this check; it caught `ProcessingJobRow`
   missing entirely, which is now added.
 
+### The security proof passed
+
+`node scripts/isolation-test.mjs`, 2026-09-10, all eleven checks:
+
+```
+PASS  handle_new_user created a profile row
+PASS  handle_new_user created a user_settings row
+PASS  settings defaults match DEFAULT_SETTINGS
+PASS  all 12 tables exist and are readable by their owner
+PASS  no table is readable by a signed-out client
+PASS  user A can insert their own meeting
+PASS  user A sees exactly their own meeting
+PASS  user B sees ZERO of user A's meetings
+PASS  user B cannot insert a meeting owned by user A
+PASS  user B cannot delete user A's meeting
+PASS  user A's meeting survived B's delete attempt
+```
+
+Two things had to change to get there. **Email confirmation was on**, which
+throttles signup behind Supabase's built-in SMTP — turned off through
+`supabase config pull`, one line, `config push`, so the setting is in a file
+rather than clicked into a dashboard. And the project issues a **publishable**
+key, not an `anon` one; both names are now accepted wherever the key is read.
+
 ### Not done — do not assume otherwise
 
-- **The M0 security test has never run.** The plan calls it the single most
-  important test in the whole build and says not to move past it. It has not
-  passed, because it has not executed. Table existence is confirmed, but
-  *whether RLS actually keeps one user out of another's rows is not*.
 - `supabase db reset --linked` has never run, so "the files alone can rebuild
   the database" is proven only for a one-shot push onto an empty project, not
   repeatably.
-- RLS enforcement is unconfirmed. The policies are in the migration and the
-  migration applied, but nothing has tried to read another user's rows.
 
 ---
 
-## The one thing blocking everything
+## Nothing is blocking
 
-`frontend/.env.local` needs a real `VITE_SUPABASE_ANON_KEY`.
-
-The file exists with the correct URL and a placeholder key. An earlier attempt
-put the **project ref** in the key field; those are different strings, and a
-`curl` against the REST endpoint with it returned `401 Invalid API key`. The
-correct value comes from **Project Settings → API**, and is long — either a JWT
-starting `eyJ...` or a string starting `sb_publishable_...`.
-
-The anon key is safe to share and safe to commit-adjacent: it ships inside the
-browser bundle on every page load. RLS is what protects the data, not that key.
+`frontend/.env.local` holds a working publishable key. Step 3's code still has
+to be exercised by hand — see below.
 
 ### The plan's "no Docker" claim is not quite true
 

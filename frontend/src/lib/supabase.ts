@@ -8,7 +8,15 @@ import { createClient } from "@supabase/supabase-js";
  * asking", never "let them through" (TRD 7, "Secrets").
  */
 const url = import.meta.env.VITE_SUPABASE_URL;
-const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+/**
+ * Supabase is renaming the browser-safe key from "anon" to "publishable", and
+ * a project issues one or the other depending on when it was made. Both go in
+ * the same header and mean the same thing, so both names are accepted rather
+ * than forcing whoever writes the file to know which era their project is in.
+ */
+const anonKey =
+  import.meta.env.VITE_SUPABASE_ANON_KEY ?? import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
 /**
  * Whether `.env.local` has actually been filled in.

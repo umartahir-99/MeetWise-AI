@@ -20,10 +20,10 @@
  * a browser instead.
  */
 import { readFileSync } from "node:fs";
-import { createClient } from "../frontend/node_modules/@supabase/supabase-js/dist/index.mjs";
+import { createClient } from "../../frontend/node_modules/@supabase/supabase-js/dist/index.mjs";
 
 const env = Object.fromEntries(
-  readFileSync(new URL("../frontend/.env.local", import.meta.url), "utf8")
+  readFileSync(new URL("../../frontend/.env.local", import.meta.url), "utf8")
     .split("\n")
     .filter((l) => l.trim() && !l.trim().startsWith("#"))
     .map((l) => {
@@ -79,7 +79,7 @@ check(Boolean(settings), "trigger created a user_settings row");
 // The column defaults ARE DEFAULT_SETTINGS, so the two cannot drift. Read the
 // frontend's copy rather than restating the values here, which would just move
 // the drift somewhere this test could not see it.
-const settingsSrc = readFileSync(new URL("../frontend/src/settings.ts", import.meta.url), "utf8");
+const settingsSrc = readFileSync(new URL("../../frontend/src/settings.ts", import.meta.url), "utf8");
 const declared = (field) => settingsSrc.match(new RegExp(`${field}:\\s*"([^"]+)"`))?.[1];
 
 check(

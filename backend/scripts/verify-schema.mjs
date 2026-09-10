@@ -53,7 +53,7 @@ const unixify = (text) => text.split("\r\n").join("\n");
 
 live = unixify(live);
 const mine = unixify(
-  readFileSync(new URL("../frontend/src/api/rows.ts", import.meta.url), "utf8")
+  readFileSync(new URL("../../frontend/src/api/rows.ts", import.meta.url), "utf8")
 );
 
 /**

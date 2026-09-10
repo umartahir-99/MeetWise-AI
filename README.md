@@ -1,32 +1,60 @@
-# React + TypeScript + Vite
+# MeetWise AI
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+A memory system for meetings.
 
-Currently, two official plugins are available:
+Most meeting tools tell you **what happened** — a transcript, a summary, and then you never open
+them again. MeetWise is built for three harder questions:
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- **What happened?** — the summary, topics and decisions.
+- **Why did it happen?** — the discussion that led to a decision, not just the decision.
+- **Who said it?** — every fact tied to the person who said it, at the second they said it.
 
-## React Compiler
+Upload a recording. It is transcribed, the voices are separated, and the topics, decisions, action
+items and key quotes are pulled out. All of it is kept in one archive you can search, ask questions
+of, and export as Markdown or JSON.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+---
 
-## Expanding the Oxlint configuration
+## Layout
 
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
-
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+```
+MeetWiseAi/
+├── frontend/     React 19 + Vite + Tailwind 4. The app.
+├── backend/      Supabase: schema, security, edge functions, and the checks that prove them.
+└── docs/         What this is, how it is built, and where the build has got to.
 ```
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+Each half has its own README. Start with [backend/README.md](backend/README.md) if you are setting
+the project up.
+
+## Documentation
+
+| Document | What it covers |
+|---|---|
+| [docs/PRD.md](docs/PRD.md) | What the product does, feature by feature — including an honest ledger of what is still simulated |
+| [docs/TRD.md](docs/TRD.md) | The technical design: schema, RLS, storage, edge functions, and the risks |
+| [docs/SUPABASE_BACKEND_PLAN.md](docs/SUPABASE_BACKEND_PLAN.md) | The order to build the backend in, milestone by milestone |
+| [docs/PROGRESS.md](docs/PROGRESS.md) | **Where the build actually is.** Read this first when picking the work back up |
+
+## Running it
+
+```bash
+# the app
+cd frontend
+npm install
+npm run dev          # http://localhost:5173
+
+# the checks
+cd backend
+node scripts/verify-schema.mjs     # do the row types still match the database?
+node scripts/isolation-test.mjs    # can one user read another's meetings?
+```
+
+`frontend/.env.local` needs a Supabase URL and key before either will do anything;
+[backend/README.md](backend/README.md) explains how to get them.
+
+## Status
+
+The frontend is complete and runs against real data for auth and settings. The archive itself is
+still fixture data — moving it to the database is the next milestone. `docs/PROGRESS.md` is kept
+current and says precisely what is proven and what is not.

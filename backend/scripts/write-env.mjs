@@ -15,7 +15,7 @@ import { execFileSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
 
 const REF = "wvvexjktntliwkrwhohk"; // Meetwise, ap-south-1. Not the Seoul one.
-const ENV_PATH = new URL("../frontend/.env.local", import.meta.url);
+const ENV_PATH = new URL("../../frontend/.env.local", import.meta.url);
 
 let raw;
 try {

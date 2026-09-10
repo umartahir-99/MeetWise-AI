@@ -21,10 +21,10 @@
  * Reads frontend/.env.local. Prints nothing secret.
  */
 import { readFileSync } from "node:fs";
-import { createClient } from "../frontend/node_modules/@supabase/supabase-js/dist/index.mjs";
+import { createClient } from "../../frontend/node_modules/@supabase/supabase-js/dist/index.mjs";
 
 const env = Object.fromEntries(
-  readFileSync(new URL("../frontend/.env.local", import.meta.url), "utf8")
+  readFileSync(new URL("../../frontend/.env.local", import.meta.url), "utf8")
     .split("\n")
     .filter((l) => l.trim() && !l.trim().startsWith("#"))
     .map((l) => {

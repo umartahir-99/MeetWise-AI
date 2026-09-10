@@ -483,7 +483,7 @@ that fallback already exists and keys off exactly this.
 
 ## 7. The Edge Functions
 
-Three functions, in `supabase/functions/`. All in TypeScript on Deno.
+Three functions, in `backend/supabase/functions/`. All in TypeScript on Deno.
 
 ### 7.1 `start-processing`
 

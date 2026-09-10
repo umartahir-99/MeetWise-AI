@@ -55,7 +55,7 @@ one line has run against a real database. Treat all of it as unverified:
 - `frontend/src/api/{rows,mappers,settings}.ts`
 - `frontend/src/components/Auth.tsx`
 - the session gate and settings wiring in `App.tsx`
-- `scripts/isolation-test.mjs`
+- `backend/scripts/isolation-test.mjs`
 
 ### Verified against the live database
 
@@ -65,12 +65,12 @@ real schema and needs only the CLI login:
 - **All twelve tables exist** in the project.
 - **The `meeting_status` enum has exactly the six values** `MeetingStatus` does.
 - **All twelve interfaces in `rows.ts` match their table column-for-column.**
-  `scripts/verify-schema.mjs` re-runs this check; it caught `ProcessingJobRow`
+  `backend/scripts/verify-schema.mjs` re-runs this check; it caught `ProcessingJobRow`
   missing entirely, which is now added.
 
 ### The security proof passed
 
-`node scripts/isolation-test.mjs`, 2026-09-10, all eleven checks:
+`node backend/scripts/isolation-test.mjs`, 2026-09-10, all eleven checks:
 
 ```
 PASS  handle_new_user created a profile row
@@ -149,7 +149,7 @@ a Bash permission rule in `.claude/settings.json`:
 3. Run the security test:
 
    ```bash
-   node scripts/isolation-test.mjs
+   node backend/scripts/isolation-test.mjs
    ```
 
    Ten checks, covering the whole of M0's list in one command: all twelve
@@ -163,14 +163,14 @@ a Bash permission rule in `.claude/settings.json`:
    because a table can have the flag on and still leak if the policy is wrong —
    and the flag would not say so.
 
-   If any fail, fix `supabase/migrations/20260909184856_rls.sql` and re-push —
+   If any fail, fix `backend/supabase/migrations/20260909184856_rls.sql` and re-push —
    never patch the database by hand.
 
 4. Only then verify Step 3 by hand: sign up, change the analysis model, refresh,
    confirm it stuck; rename the account, refresh, confirm; sign out and back in.
 
 5. Then Step 4 (M2a): `api/mappers.ts` grows the meeting mapper, plus
-   `api/meetings.ts`, `useArchive.ts`, and `supabase/seed.sql`.
+   `api/meetings.ts`, `useArchive.ts`, and `backend/supabase/seed.sql`.
 
 ---
 

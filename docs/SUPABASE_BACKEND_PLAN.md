@@ -24,16 +24,18 @@ Supabase project instead of a local copy. See M0 for what that trades away and w
 
 ```
 MeetWiseAi/
-├── frontend/            ← already exists, mostly unchanged
-├── supabase/            ← new
-│   ├── config.toml
-│   ├── migrations/      ← the SQL that builds the database
-│   ├── functions/
-│   │   ├── start-processing/
-│   │   ├── transcription-webhook/
-│   │   └── analyze-meeting/
-│   └── seed.sql         ← the sample meetings, seeded into the cloud project
-└── docs/                ← these three documents
+├── frontend/                ← the React app
+├── backend/                 ← everything server-side
+│   ├── supabase/
+│   │   ├── config.toml
+│   │   ├── migrations/      ← the SQL that builds the database
+│   │   ├── functions/
+│   │   │   ├── start-processing/
+│   │   │   ├── transcription-webhook/
+│   │   │   └── analyze-meeting/
+│   │   └── seed.sql         ← the sample meetings, seeded into the cloud project
+│   └── scripts/             ← the checks that prove each milestone
+└── docs/                    ← these documents
 ```
 
 ### One rule to follow the whole way
@@ -65,7 +67,7 @@ That has one real cost and one real benefit, both worth knowing before you start
 ### Steps
 
 ```bash
-cd C:/Users/DELL/Desktop/MeetWiseAi
+cd C:/Users/DELL/Desktop/MeetWiseAi/backend   # the CLI looks for ./supabase
 npm install -g supabase        # or: npx supabase
 supabase init
 supabase login
@@ -92,7 +94,7 @@ supabase db reset --linked   # wipes the public schema and reapplies every migra
 ```
 
 `--linked` is the remote equivalent of the local `db reset` — it drops everything you created in
-the `public` schema and rebuilds it purely from the files in `supabase/migrations/`, which is
+the `public` schema and rebuilds it purely from the files in `backend/supabase/migrations/`, which is
 the whole point: if the files can't rebuild it, the files are wrong.
 
 ### How to know it worked
@@ -177,7 +179,7 @@ This is the largest milestone. Take it in three parts.
    [TRD section 2](./TRD.md#reading-a-meeting).
 3. Write `src/useArchive.ts` to load them.
 4. In `App.tsx`, swap `useState(MOCK_MEETINGS)` for `useArchive()`.
-5. Write `supabase/seed.sql` from the existing fixtures so you have something to look at.
+5. Write `backend/supabase/seed.sql` from the existing fixtures so you have something to look at.
 
 **The test that proves the mapper is right:** the Archive, Home, Ask, Commitments and Meeting
 Detail screens all work with **zero changes to their code**. If you find yourself editing a

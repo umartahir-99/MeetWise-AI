@@ -21,7 +21,7 @@
  * Reads frontend/.env.local. Prints nothing secret.
  */
 import { readFileSync } from "node:fs";
-import { createClient } from "../frontend/node_modules/@supabase/supabase-js/dist/module/index.js";
+import { createClient } from "../frontend/node_modules/@supabase/supabase-js/dist/index.mjs";
 
 const env = Object.fromEntries(
   readFileSync(new URL("../frontend/.env.local", import.meta.url), "utf8")
@@ -37,6 +37,16 @@ const url = env.VITE_SUPABASE_URL;
 const key = env.VITE_SUPABASE_ANON_KEY;
 if (!url || !key) {
   console.error("FAIL — frontend/.env.local is missing VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY");
+  process.exit(1);
+}
+
+// Caught here rather than as an opaque "Invalid API key" six calls later. The
+// project ref is the mistake worth naming explicitly: it is the right length to
+// look plausible and sits next to the real key on the same dashboard page.
+if (key.includes("PASTE_") || key === url.replace(/^https:\/\//, "").split(".")[0]) {
+  console.error("FAIL — VITE_SUPABASE_ANON_KEY is still a placeholder, or is the project ref.");
+  console.error("The anon key is a long token: a JWT starting `eyJ...`, or `sb_publishable_...`.");
+  console.error("\nFix it with:  node scripts/write-env.mjs");
   process.exit(1);
 }
 

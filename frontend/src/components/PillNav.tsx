@@ -51,6 +51,15 @@ export interface PillNavProps {
   onItemClick?: (item: PillNavItem, event: React.MouseEvent) => void;
   /** Optional action pill, held to the right of the items. */
   action?: { label: string; onClick: () => void };
+  /**
+   * Who is signed in, and how to leave.
+   *
+   * It sits in the bar rather than inside a settings page because signing out
+   * is not a setting — it is a thing you do, and a thing you should be able to
+   * find without hunting. Naming the account next to it also answers "whose
+   * archive am I looking at?", which matters the moment a person has two.
+   */
+  account?: { name: string; email: string; onSignOut: () => void };
 }
 
 /** Above this the pills sit in a row; below it they collapse into the panel. */
@@ -85,6 +94,7 @@ export const PillNav: React.FC<PillNavProps> = ({
   initialLoadAnimation = false,
   onItemClick,
   action,
+  account,
 }) => {
   const [menuOpen, setMenuOpen] = useState(false);
   const [logoFailed, setLogoFailed] = useState(false);
@@ -172,6 +182,29 @@ export const PillNav: React.FC<PillNavProps> = ({
     </button>
   ) : null;
 
+  /**
+   * The account cluster: who you are, and the way out.
+   *
+   * Deliberately quieter than the action pill beside it — driftwood on the bare
+   * bar, no fill. Uploading is what you came to do; signing out is what you do
+   * once. It stays legible rather than hiding behind a menu, because a control
+   * nobody can find is the same as one that is not there.
+   *
+   * The name is the display name, falling back to the part of the address
+   * before the @ — an account that has never been renamed still reads as
+   * somebody rather than as a blank.
+   */
+  const accountCluster = account ? (
+    <div className="pill-nav__account">
+      <span className="pill-nav__account-name" title={account.email}>
+        {account.name || account.email.split("@")[0]}
+      </span>
+      <button type="button" className="pill-nav__signout" onClick={account.onSignOut}>
+        Sign out
+      </button>
+    </div>
+  ) : null;
+
   return (
     <header
       className={`pill-nav${className ? ` ${className}` : ""}`}
@@ -209,6 +242,7 @@ export const PillNav: React.FC<PillNavProps> = ({
 
         <ul className="pill-nav__list">{pills}</ul>
         {actionPill}
+        {accountCluster}
 
         <button
           type="button"
@@ -228,6 +262,7 @@ export const PillNav: React.FC<PillNavProps> = ({
       <div className="pill-nav__panel" id={panelId} hidden={!menuOpen}>
         <ul>{pills}</ul>
         {actionPill}
+        {accountCluster}
       </div>
     </header>
   );

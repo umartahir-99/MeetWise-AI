@@ -297,6 +297,18 @@ function AppShell({ user }: { user: AuthUser }) {
     );
   };
 
+  /**
+   * Leave.
+   *
+   * No confirmation: signing out costs nothing to undo, and a dialog guarding
+   * a reversible action trains people to dismiss dialogs. `Root` unmounts the
+   * whole archive when the session goes, so nothing of this account is left
+   * behind for the next one.
+   */
+  const handleSignOut = () => {
+    supabase.auth.signOut().catch((failure) => console.error("Could not sign out", failure));
+  };
+
   /** Your own display name, which is also the name your voice resolves to. */
   const handleRenameAccount = (rawName: string) => {
     const name = rawName.trim();
@@ -396,6 +408,11 @@ function AppShell({ user }: { user: AuthUser }) {
       activeHref={`#${activeTab}`}
       onItemClick={(item) => handleNavigate(item.href.slice(1))}
       action={{ label: "Upload Recording", onClick: handleStartUpload }}
+      account={{
+        name: account.name,
+        email: user.email ?? "",
+        onSignOut: handleSignOut,
+      }}
       ease="power2.easeOut"
       baseColor="var(--color-ember-accent)"
       pillColor="var(--color-pill-rest)"
@@ -521,7 +538,7 @@ function AppShell({ user }: { user: AuthUser }) {
             onExport={handleExport}
             onClearArchive={handleClearArchive}
             accountEmail={user.email ?? ""}
-            onSignOut={() => supabase.auth.signOut()}
+            onSignOut={handleSignOut}
           />
         </section>
       </main>

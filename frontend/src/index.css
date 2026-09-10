@@ -351,6 +351,104 @@
     color: var(--color-warm-cream);
   }
 
+  /*
+   * Account cluster: who is signed in, and the way out.
+   *
+   * Quieter than the action pill it sits beside — no fill, driftwood text, a
+   * hairline holding it apart from the bar's business. Uploading is the thing
+   * you came to do; signing out is the thing you do once, so it reads as an
+   * aside without being hidden.
+   */
+  .pill-nav__account {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-left: 17px;
+    padding-left: 17px;
+    border-left: 1px solid var(--color-cork-border);
+  }
+
+  /* Cream, not driftwood: driftwood lands at 3.2:1 on the walnut ground, and
+     this is the one string in the bar whose whole job is to be read. Size and
+     weight keep it below the pills in the hierarchy without dimming it. */
+  .pill-nav__account-name {
+    max-width: 16ch;
+    overflow: hidden;
+    color: var(--color-warm-cream);
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .pill-nav__signout {
+    flex-shrink: 0;
+    padding: 6px 14px;
+    border: 1px solid var(--color-cork-border);
+    border-radius: 9999px;
+    background-color: transparent;
+    /* Held back from the name without dropping to driftwood, which does not
+       clear 4.5:1 at this size. */
+    color: color-mix(in srgb, var(--color-warm-cream) 72%, transparent);
+    font-family: inherit;
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: border-color 150ms ease, color 150ms ease;
+  }
+
+  .pill-nav__signout:hover,
+  .pill-nav__signout:focus-visible {
+    border-color: var(--color-ember-accent);
+    color: var(--color-ember-accent);
+    outline: none;
+  }
+
+  .pill-nav__signout:active {
+    transform: scale(0.96);
+  }
+
+  /* On the cream band the bar inverts, so the account has to come with it. */
+  .pill-nav[data-theme="light"] .pill-nav__account {
+    border-left-color: var(--color-wheat-border);
+  }
+
+  .pill-nav[data-theme="light"] .pill-nav__account-name {
+    color: var(--color-ink);
+  }
+
+  .pill-nav[data-theme="light"] .pill-nav__signout {
+    color: var(--color-ink-muted);
+  }
+
+  .pill-nav[data-theme="light"] .pill-nav__signout {
+    border-color: var(--color-wheat-border);
+  }
+
+  .pill-nav[data-theme="light"] .pill-nav__signout:hover,
+  .pill-nav[data-theme="light"] .pill-nav__signout:focus-visible {
+    border-color: var(--color-ember-deep);
+    color: var(--color-ember-deep);
+  }
+
+  /* Stacked in the panel, where there is no row to sit at the end of. */
+  .pill-nav__panel .pill-nav__account {
+    margin-left: 0;
+    padding-left: 0;
+    padding-top: 14px;
+    border-left: none;
+    border-top: 1px solid var(--color-cork-border);
+    justify-content: space-between;
+  }
+
+  .pill-nav__panel .pill-nav__account-name {
+    max-width: none;
+  }
+
   /* Grows from the pill's floor. Wider than the pill so the corners fill too. */
   .pill-nav__circle {
     position: absolute;
@@ -510,6 +608,25 @@
   @media (max-width: 768px) {
     .pill-nav__panel .pill-nav__action {
       display: inline-flex;
+    }
+  }
+
+  /* The account travels with the CTA, and for the same reason: past this the
+     bar is brand and burger, and anything else pushes one of them off. */
+  @media (max-width: 768px) {
+    .pill-nav__bar > .pill-nav__account {
+      display: none;
+    }
+  }
+
+  .pill-nav__panel .pill-nav__account {
+    display: none;
+  }
+
+  @media (max-width: 768px) {
+    .pill-nav__panel .pill-nav__account {
+      display: flex;
+      margin-top: 14px;
     }
   }
 

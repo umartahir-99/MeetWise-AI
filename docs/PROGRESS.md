@@ -57,16 +57,28 @@ one line has run against a real database. Treat all of it as unverified:
 - the session gate and settings wiring in `App.tsx`
 - `scripts/isolation-test.mjs`
 
+### Verified against the live database
+
+Run on 2026-09-10 with `supabase gen types typescript --linked`, which reads the
+real schema and needs only the CLI login:
+
+- **All twelve tables exist** in the project.
+- **The `meeting_status` enum has exactly the six values** `MeetingStatus` does.
+- **All twelve interfaces in `rows.ts` match their table column-for-column.**
+  `scripts/verify-schema.mjs` re-runs this check; it caught `ProcessingJobRow`
+  missing entirely, which is now added.
+
 ### Not done — do not assume otherwise
 
 - **The M0 security test has never run.** The plan calls it the single most
   important test in the whole build and says not to move past it. It has not
-  passed, because it has not executed.
+  passed, because it has not executed. Table existence is confirmed, but
+  *whether RLS actually keeps one user out of another's rows is not*.
 - `supabase db reset --linked` has never run, so "the files alone can rebuild
   the database" is proven only for a one-shot push onto an empty project, not
   repeatably.
-- No table listing or RLS-enabled confirmation has been read back from the
-  database.
+- RLS enforcement is unconfirmed. The policies are in the migration and the
+  migration applied, but nothing has tried to read another user's rows.
 
 ---
 

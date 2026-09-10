@@ -119,6 +119,26 @@ export interface MeetingRow {
   updated_at: string;
 }
 
+/**
+ * The row a webhook uses to find its way back to the right meeting.
+ *
+ * Gladia's callback carries only a transcription id, so `provider_job_id` is
+ * the sole link between an incoming call and a meeting we own. A webhook whose
+ * id matches no row here is not ours and is dropped (TRD 7.2).
+ */
+export interface ProcessingJobRow {
+  id: string;
+  meeting_id: string;
+  owner_id: string;
+  provider: string;
+  provider_job_id: string | null;
+  stage: MeetingStatus;
+  attempts: number;
+  last_error: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 /** A meeting with every child table pulled in by the nested select. */
 export interface MeetingRowWithChildren extends MeetingRow {
   meeting_speakers: MeetingSpeakerRow[];

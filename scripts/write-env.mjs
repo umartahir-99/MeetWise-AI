@@ -20,9 +20,9 @@ const ENV_PATH = new URL("../frontend/.env.local", import.meta.url);
 let raw;
 try {
   raw = execFileSync(
-    process.platform === "win32" ? "supabase.cmd" : "supabase",
+    "supabase",
     ["projects", "api-keys", "--project-ref", REF, "-o", "json"],
-    { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }
+    { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], shell: process.platform === "win32" }
   );
 } catch (failure) {
   console.error("Could not reach the Supabase CLI.");

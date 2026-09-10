@@ -95,6 +95,25 @@ starting `eyJ...` or a string starting `sb_publishable_...`.
 The anon key is safe to share and safe to commit-adjacent: it ships inside the
 browser bundle on every page load. RLS is what protects the data, not that key.
 
+### The plan's "no Docker" claim is not quite true
+
+`SUPABASE_BACKEND_PLAN.md` line 20 says every step runs against the cloud
+project with no Docker needed. That holds for `link`, `db push`,
+`migration list` and `gen types`, all of which have been run here successfully.
+
+It does **not** hold for `supabase db dump`, which fails with
+`docker: command not found`. The CLI runs `pg_dump` inside a container even when
+the target is remote.
+
+`supabase db reset --linked` is very likely the same — it is documented as
+rebuilding through the same machinery — which means the M0 step "prove the files
+can rebuild the database" may need Docker Desktop installed after all, or has to
+be replaced by dropping and re-pushing. Not yet confirmed, because that command
+is refused to the agent for being destructive.
+
+This does not block anything today. `db push` applied all four migrations to an
+empty project, which demonstrates the same property once.
+
 ### Three commands were blocked by the permission classifier
 
 Not worked around, deliberately. Any of these needs either the user to run it or

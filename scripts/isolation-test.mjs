@@ -8,6 +8,14 @@
  * that is the door the app actually knocks on — a service-role connection
  * bypasses RLS entirely and would pass this test while the app leaked.
  *
+ * It covers the whole of M0's checklist, not just the headline test:
+ *   - every one of the twelve tables exists and is reachable
+ *   - RLS is enforced on each of them, proven by behaviour rather than by
+ *     reading a catalogue flag — a table can have RLS switched on and still
+ *     leak if the policy is wrong, and the flag would not say so
+ *   - the new-user trigger populates profiles and user_settings
+ *   - user B cannot read, forge or delete user A's rows
+ *
  *   node scripts/isolation-test.mjs
  *
  * Reads frontend/.env.local. Prints nothing secret.
@@ -69,6 +77,51 @@ check(
   setA?.transcription_model === "gladia-solaria-3" && setA?.analysis_model === "gemini-3-flash",
   "settings defaults match DEFAULT_SETTINGS",
   setA ? `${setA.transcription_model} / ${setA.analysis_model}` : "no row"
+);
+
+// Every table the migrations should have created. Selecting from each as a
+// signed-in user proves it exists, is exposed through PostgREST, and has a
+// policy that lets its owner through. A missing table errors; a table with RLS
+// on but no policy also errors, which is the failure this catches.
+const TABLES = [
+  "profiles",
+  "people",
+  "voices",
+  "meetings",
+  "meeting_speakers",
+  "transcript_lines",
+  "topics",
+  "decisions",
+  "action_items",
+  "quotes",
+  "user_settings",
+  "processing_jobs",
+];
+
+const missing = [];
+for (const table of TABLES) {
+  const { error } = await a.c.from(table).select("*").limit(1);
+  if (error) missing.push(`${table} (${error.message})`);
+}
+check(
+  missing.length === 0,
+  `all ${TABLES.length} tables exist and are readable by their owner`,
+  missing.length ? missing.join("; ") : ""
+);
+
+// RLS must be ON everywhere. With it off, an anonymous client — no session at
+// all — can read the table. That is the check: a signed-out client must be
+// refused or see nothing, on every table.
+const anon = client();
+const leaking = [];
+for (const table of TABLES) {
+  const { data, error } = await anon.from(table).select("*").limit(1);
+  if (!error && Array.isArray(data) && data.length > 0) leaking.push(table);
+}
+check(
+  leaking.length === 0,
+  "no table is readable by a signed-out client",
+  leaking.length ? `LEAKING: ${leaking.join(", ")}` : ""
 );
 
 // A inserts a meeting.

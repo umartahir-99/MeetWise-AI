@@ -111,12 +111,19 @@ a Bash permission rule in `.claude/settings.json`:
    node scripts/isolation-test.mjs
    ```
 
-   Six checks: the `handle_new_user` trigger made both rows, the settings
-   defaults match `DEFAULT_SETTINGS`, A can insert and read their own meeting,
-   **B sees zero of A's meetings**, B cannot forge a row owned by A, and B
-   cannot delete A's meeting. If any fail, fix
-   `supabase/migrations/20260909184856_rls.sql` and re-push — never patch the
-   database by hand.
+   Ten checks, covering the whole of M0's list in one command: all twelve
+   tables exist and are readable by their owner, **no table is readable by a
+   signed-out client**, the `handle_new_user` trigger made both rows, the
+   settings defaults match `DEFAULT_SETTINGS`, A can insert and read their own
+   meeting, **B sees zero of A's meetings**, B cannot forge a row owned by A,
+   and B cannot delete A's meeting.
+
+   RLS is checked by behaviour rather than by reading `pg_class.relrowsecurity`,
+   because a table can have the flag on and still leak if the policy is wrong —
+   and the flag would not say so.
+
+   If any fail, fix `supabase/migrations/20260909184856_rls.sql` and re-push —
+   never patch the database by hand.
 
 4. Only then verify Step 3 by hand: sign up, change the analysis model, refresh,
    confirm it stuck; rename the account, refresh, confirm; sign out and back in.

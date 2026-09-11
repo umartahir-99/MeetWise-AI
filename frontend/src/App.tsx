@@ -34,8 +34,15 @@ import {
   markFailed,
   setActionItemDone,
   startProcessing,
+  sweepExpired,
 } from "./api/meetings";
-import { recordingPath, removeRecording, signedRecordingUrl, uploadRecording } from "./api/storage";
+import {
+  SIGNED_URL_REFRESH_MS,
+  recordingPath,
+  removeRecording,
+  signedRecordingUrl,
+  uploadRecording,
+} from "./api/storage";
 import { forgetVoice, nameVoice } from "./api/voices";
 
 /** Landing sections, in the order they appear down the page. */
@@ -440,7 +447,15 @@ function AppShell({ user }: { user: AuthUser }) {
     );
   };
 
-  /** Retention, actually applied: drop everything past the window. */
+  /**
+   * Retention, applied now rather than tonight.
+   *
+   * The same edge function the nightly scheduler calls, scoped to this user
+   * by their token - so the button and the schedule cannot disagree about
+   * what "expired" means, and neither can forget the stored file. The archive
+   * is re-read afterwards rather than patched, because the server decided
+   * what went.
+   */
   const handlePurgeExpired = () => {
     const doomed = expiredMeetings(meetings, settings.retentionDays);
     if (!doomed.length) return;
@@ -451,22 +466,17 @@ function AppShell({ user }: { user: AuthUser }) {
     ) {
       return;
     }
-    const ids = doomed.map((m) => m.id);
-    const doomedSet = new Set(ids);
     for (const m of doomed) {
       if (m.audioUrl) URL.revokeObjectURL(m.audioUrl);
     }
-    setMeetings((prev) => prev.filter((m) => !doomedSet.has(m.id)));
-    if (selectedMeetingId && doomedSet.has(selectedMeetingId)) {
+    const ids = new Set(doomed.map((m) => m.id));
+    if (selectedMeetingId && ids.has(selectedMeetingId)) {
       setSelectedMeetingId(null);
       setView("landing");
     }
-    // Rows first, then a reload: if the delete fails the archive comes back
-    // intact rather than staying optimistically empty.
-    deleteMeetings(ids).catch((failure) => {
-      console.error("Could not delete those meetings", failure);
-      void refresh();
-    });
+    sweepExpired()
+      .catch((failure) => console.error("Could not delete expired meetings", failure))
+      .finally(() => void refresh());
   };
 
   const handleExport = (format: "json" | "markdown") => {
@@ -495,11 +505,39 @@ function AppShell({ user }: { user: AuthUser }) {
     setSelectedMeetingId(null);
     setView("landing");
 
-    deleteMeetings(ids).catch((failure) => {
-      console.error("Could not clear the archive", failure);
-      void refresh();
-    });
+    // Files first, then rows - the order that cannot orphan a recording. A
+    // row deleted from the database says nothing to the bucket.
+    const paths = meetings.map((m) => m.audioPath).filter((p): p is string => Boolean(p));
+    Promise.all(paths.map(removeRecording))
+      .then(() => deleteMeetings(ids))
+      .catch((failure) => {
+        console.error("Could not clear the archive", failure);
+        void refresh();
+      });
   };
+
+  // A playback URL lasts an hour. Somebody listening to a long meeting past
+  // that mark would hit a dead link mid-play, so while a meeting is open its
+  // URL is re-signed a few minutes before it expires. The player never sees
+  // the seam: a new `src` on an `<audio>` that is already playing at the same
+  // offset is the one transition it handles on its own.
+  const openMeetingId = currentMeeting?.id;
+  const openAudioPath = currentMeeting?.audioPath;
+  useEffect(() => {
+    if (view !== "detail" || !openMeetingId || !openAudioPath) return;
+
+    const timer = setInterval(() => {
+      signedRecordingUrl(openAudioPath)
+        .then((url) =>
+          setMeetings((prev) =>
+            prev.map((m) => (m.id === openMeetingId ? { ...m, audioUrl: url } : m))
+          )
+        )
+        .catch((failure) => console.error("Could not refresh the recording link", failure));
+    }, SIGNED_URL_REFRESH_MS);
+
+    return () => clearInterval(timer);
+  }, [view, openMeetingId, openAudioPath, setMeetings]);
 
   // Full-screen views always open at the top - instantly, since easing a scroll
   // the user did not ask for reads as the new page arriving late.

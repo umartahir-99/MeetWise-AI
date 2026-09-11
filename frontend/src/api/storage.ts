@@ -41,8 +41,15 @@ export async function uploadRecording(path: string, file: File): Promise<void> {
  * Minted on demand when a meeting is opened rather than stored on the row: a
  * stored URL is a URL that has expired by the time somebody clicks it.
  */
+export const SIGNED_URL_TTL_MS = 60 * 60 * 1000;
+
+/** Re-sign this long before expiry, so a long listen never hits a dead link. */
+export const SIGNED_URL_REFRESH_MS = SIGNED_URL_TTL_MS - 5 * 60 * 1000;
+
 export async function signedRecordingUrl(path: string): Promise<string> {
-  const { data, error } = await supabase.storage.from(BUCKET).createSignedUrl(path, 60 * 60);
+  const { data, error } = await supabase.storage
+    .from(BUCKET)
+    .createSignedUrl(path, SIGNED_URL_TTL_MS / 1000);
 
   if (error) throw error;
   return data.signedUrl;

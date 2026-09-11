@@ -426,3 +426,8 @@ verify_jwt = false
 
 [functions.analyze-meeting]
 verify_jwt = false
+
+# Called by the nightly scheduler with a Vault secret, or by a signed-in user
+# with their token; it checks whichever it is given.
+[functions.retention-sweep]
+verify_jwt = false

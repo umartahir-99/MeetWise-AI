@@ -19,7 +19,7 @@ is blocked and on whom, and the exact next command to run.
 | 4 | M2 — the archive lives in the database | **Done** — 19 checks pass |
 | 5 | M3 — real uploads, Realtime status | **Done** — 11 checks pass, fake pipeline deleted |
 | 6 | M4 — Gladia + Gemini, real AI | **Done** — 25 checks pass on a real recording |
-| 7 | M5 — retention, audio housekeeping | Not started |
+| 7 | M5 — retention, audio housekeeping | **Done** — 12 checks pass |
 | 8 | M6 — cross-meeting voice identity (optional) | Not started |
 
 
@@ -333,13 +333,50 @@ into it and `MINE` works as the PRD promises.
 **Deferred by Umar, 2026-09-11** — to be judged on a real meeting with assigned
 tasks. Until then, tasks show under EVERYONE and MINE stays empty.
 
+### Step 7 (M5) done, 2026-09-11
+
+`node backend/scripts/verify-m5.mjs` — twelve checks on a throwaway account:
+the `updated_at` trigger fires; a signed playback URL serves the recording;
+the sweep refuses a wrong scheduler key and refuses no credentials; **an
+expired meeting's row and its recording are both gone, a meeting inside the
+window and its file both survive, and another user's expired meeting is
+untouched**; a discarded-audio meeting carries no path for the player to sign.
+
+**The sweep is an edge function, not SQL.** Deleting from `storage.objects` in
+SQL leaves the file in the bucket, orphaned and billed — only the Storage API
+removes it. So `retention-sweep` is called nightly (03:15 UTC) by `pg_cron`
+through `pg_net`, and the shared secret it checks is **generated inside the
+database into Vault** by the migration. Neither side ever reads it from a
+file; a different project running the migration gets its own. The Settings
+"delete expired" button calls the same function with the user's token, scoped
+to them, so the manual path and the schedule cannot drift.
+
+Also fixed on the way: **delete-all was orphaning recordings** — it deleted
+rows and never touched the bucket. Files now go first, then rows, the order
+that cannot orphan. And playback URLs are re-signed five minutes before their
+hour is up while a meeting stays open, so a long listen never hits a dead link.
+
+**A test-design mistake, caught and fixed:** the first run of `verify-m5`
+pointed at the seeded test account, set a 30-day window, and correctly deleted
+two sample meetings older than that. Retention did exactly what it should; the
+test should never have been aimed at data anyone wanted. It now creates its own
+account. The seed was restored and M2 re-verified.
+
+**Not run live:** discard-audio through the full pipeline (one Gladia run and
+one Gemini request). The structural check passes — a nulled `audio_path`
+produces a meeting with nothing for the player to sign, which is the narration
+fallback's trigger. Umar can confirm on his next upload with the toggle on.
+
+**Not observable yet:** the nightly run itself fires at 03:15 UTC. Its effect
+is visible in the Supabase dashboard's function logs the morning after.
+
 ### Still to do, in order
 
 1. Watch `processing_jobs` on Umar's next real upload: it will say where the
    2:30 went, and whether `low` keeps producing fewer quotes on real meetings.
-2. Step 7 (M5): retention sweep on the same `pg_cron`, signed-URL refresh,
-   discard-audio verification.
-3. The `MINE` fix, when a real meeting with tasks makes the case for it.
+2. The `MINE` fix, when a real meeting with tasks makes the case for it.
+3. Step 8 (M6, optional): cross-meeting voice identity. Voice prints are
+   `meeting_id:slot` today, so naming works within one recording only.
 
 ---
 

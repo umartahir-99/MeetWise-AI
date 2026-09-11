@@ -63,6 +63,7 @@ node scripts/verify-m2.mjs <email> <password>     # does the archive round-trip 
 node scripts/verify-m3.mjs <email> <password>     # does an upload land, and does Realtime carry status?
 node scripts/verify-m4.mjs <email> <password> <audio>   # does a real recording become a real summary?
 node scripts/verify-reaper.mjs <email> <password>       # does a stuck job become retryable? (waits on cron, ~5 min)
+node scripts/verify-m5.mjs                              # do expired meetings and their files go? (own throwaway account)
 node scripts/bench-pipeline.mjs <email> <password> <audio> [label] [--dump]   # where does the time go?
 ```
 

@@ -159,3 +159,16 @@ export async function markFailed(
 
   if (error) throw error;
 }
+
+/**
+ * Delete everything past the retention window - rows and recordings.
+ *
+ * Goes through the same edge function the nightly scheduler calls, scoped to
+ * the signed-in user by their token, so the button and the schedule cannot
+ * disagree about what "expired" means or forget the file.
+ */
+export async function sweepExpired(): Promise<{ deletedMeetings: number; deletedFiles: number }> {
+  const { data, error } = await supabase.functions.invoke("retention-sweep", { body: {} });
+  if (error) throw error;
+  return data;
+}

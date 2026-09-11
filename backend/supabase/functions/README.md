@@ -13,8 +13,17 @@ bundles server-side, so Docker is not needed.
 functions/
 ├── start-processing/        called by the browser, hands the audio to Gladia
 ├── transcription-webhook/   called by Gladia when the transcript is ready
-└── analyze-meeting/         called by a database webhook, asks Gemini for the analysis
+├── analyze-meeting/         handed off by the webhook, asks Gemini for the analysis
+└── retention-sweep/         called nightly by pg_cron, or by a user from Settings
 ```
+
+## Why the sweep is a function and not SQL
+
+Deleting a row from `storage.objects` does not delete the object behind it. The file stays in
+the bucket, orphaned and billed, with no row left to find it by. Only the Storage API removes a
+file, so the nightly sweep runs here. `pg_cron` calls it through `pg_net` with a secret that the
+migration generated inside the database into Vault — the scheduler reads it from Vault to send
+and the function reads it from Vault to check, and it never exists in any file.
 
 ## Why three, and not one
 

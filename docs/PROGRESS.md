@@ -307,25 +307,36 @@ An hour fits under 50 MiB only as compressed audio at ≤ ~96 kbps (M4A/MP3 at
 transcript for an hour is ~55 KB / ~700 lines — under every guard. The 25-minute
 near-cap test was **not run** (Umar's call, to save Gladia minutes).
 
+### The seven browser checks — all confirmed by Umar, 2026-09-11
+
+HEAR IT plays the real recording at the quote's moment; transcript lines seek;
+naming both voices updates transcript, quotes and action items; Ask answers
+from the real meeting and its citation opens and plays; a ticked item stays
+ticked across refresh and sorts below the open ones; Markdown export carries
+the real meeting with the given names; sign out and in keeps everything.
+
+**M4 is complete.**
+
+### A gap found while checking Owed
+
+Owed defaults to **MINE** — action items whose speaker resolves to the
+account. But nothing links a voice to the account: naming a speaker, even with
+your own name, creates a `people` row whose id is never the user id. So
+`MINE` is permanently empty for real uploads and only EVERYONE works. The
+fixtures hid this by wiring `vp-sarah-chen` to the fixture user by hand.
+
+Proposed fix, awaiting approval: every account gets a `people` row whose id
+**is** the user id, created by `handle_new_user` and renamed with the account;
+existing accounts backfilled by the same migration. Typing your own name on a
+voice then merges into it and `MINE` works as the PRD promises.
+
 ### Still to do, in order
 
-1. The seven browser checks (unchanged — see the list below). HEAR IT on a
-   real quote is the one that has never run in a browser.
+1. The `MINE` fix above, if approved.
 2. Watch `processing_jobs` on Umar's next real upload: it will say where the
    2:30 went, and whether `low` keeps producing fewer quotes on real meetings.
 3. Step 7 (M5): retention sweep on the same `pg_cron`, signed-URL refresh,
    discard-audio verification.
-
-### The seven browser checks
-
-1. Open the processed meeting, press HEAR IT on a quote — does the real audio
-   play from the right second?
-2. Click a transcript line — does the audio jump there?
-3. Name both voices — do transcript, quotes and action items all update?
-4. Ask a question about the meeting, click a citation — does it open and play?
-5. Tick an action item, refresh — still ticked?
-6. Export as Markdown — is the real meeting there, with the names given?
-7. Sign out, sign in — everything still there?
 
 ---
 

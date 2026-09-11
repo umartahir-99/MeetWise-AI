@@ -325,18 +325,21 @@ your own name, creates a `people` row whose id is never the user id. So
 `MINE` is permanently empty for real uploads and only EVERYONE works. The
 fixtures hid this by wiring `vp-sarah-chen` to the fixture user by hand.
 
-Proposed fix, awaiting approval: every account gets a `people` row whose id
-**is** the user id, created by `handle_new_user` and renamed with the account;
-existing accounts backfilled by the same migration. Typing your own name on a
-voice then merges into it and `MINE` works as the PRD promises.
+Proposed fix: every account gets a `people` row whose id **is** the user id,
+created by `handle_new_user` and renamed with the account; existing accounts
+backfilled by the same migration. Typing your own name on a voice then merges
+into it and `MINE` works as the PRD promises.
+
+**Deferred by Umar, 2026-09-11** — to be judged on a real meeting with assigned
+tasks. Until then, tasks show under EVERYONE and MINE stays empty.
 
 ### Still to do, in order
 
-1. The `MINE` fix above, if approved.
-2. Watch `processing_jobs` on Umar's next real upload: it will say where the
+1. Watch `processing_jobs` on Umar's next real upload: it will say where the
    2:30 went, and whether `low` keeps producing fewer quotes on real meetings.
-3. Step 7 (M5): retention sweep on the same `pg_cron`, signed-URL refresh,
+2. Step 7 (M5): retention sweep on the same `pg_cron`, signed-URL refresh,
    discard-audio verification.
+3. The `MINE` fix, when a real meeting with tasks makes the case for it.
 
 ---
 

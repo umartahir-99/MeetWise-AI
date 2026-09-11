@@ -1,6 +1,6 @@
 # MeetWise AI — Backend migration progress
 
-**Last worked:** 2026-09-10
+**Last worked:** 2026-09-11
 **Branch:** `backend/supabase-migration`
 **Companion documents:** [PRD.md](./PRD.md) · [TRD.md](./TRD.md) · [SUPABASE_BACKEND_PLAN.md](./SUPABASE_BACKEND_PLAN.md)
 
@@ -251,7 +251,60 @@ a Bash permission rule in `.claude/settings.json`:
 
 ---
 
-## Pick up here tomorrow
+## Pick up here
+
+Umar confirmed the pipeline on his own recording on 2026-09-11: a 5:44
+meeting transcribed, analysed and came back with a real summary, in 2:30.
+
+**Measured throughput is ~0.4× the recording length**, almost all of it
+Gladia. That extrapolates to roughly 17–20 minutes for a 45-minute meeting and
+23–27 for an hour — far slower than the TRD's "1 to 3 minutes for 45", which was
+optimistic. Plan around the measured number.
+
+### First, a small fix
+
+`processing.ts` gives the transcribing stage a flat `expectedMs` of 120 s, so
+anything over ~3 minutes will show "TAKING LONGER THAN USUAL" while nothing is
+wrong. The estimate must scale with the recording's length, which the meeting
+row already carries in `duration_ms` / `source_duration_sec`. Make
+`expectedMs` for transcribing ≈ 0.35 × duration, keep a floor for short files.
+
+### Then, the browser checks not yet done
+
+The scripts prove the data; these prove the screens. None has been exercised in
+a browser yet:
+
+1. Open the processed meeting, press HEAR IT on a quote — does the real audio
+   play from the right second? (This is the signed-URL path's first run in a
+   browser.)
+2. Click a transcript line — does the audio jump there?
+3. Name both voices — do transcript, quotes and action items all update?
+4. Ask a question about the meeting, click a citation — does it open and play?
+5. Tick an action item, refresh — still ticked?
+6. Export as Markdown — is the real meeting there, with the names given?
+7. Sign out, sign in — everything still there?
+
+Also glance at the Gladia dashboard (480 free min/month; 5:44 cost ~6) and
+Google AI Studio (Gemini quota) so neither runs dry unnoticed.
+
+### Then Step 7 (M5)
+
+Nightly retention sweep via `pg_cron`, deleting rows past each user's window
+**and their stored files**. Signed-URL refresh before the hour expires, for
+long listening sessions. `discard_audio_after_processing` is already honoured
+in `analyze-meeting`; verify the player falls back to narration by itself
+afterwards. Add the `updated_at` trigger check.
+
+### The 50 MiB ceiling is a hard constraint at this length
+
+A 45–60 minute meeting fits only as **compressed audio** — M4A or MP3 at speech
+quality is ~20–30 MB for an hour. The same hour as WAV is ~500 MB, as video far
+more; both are refused at the upload screen. The "export audio-only" nudge is
+a requirement, not advice. Raising the cap is a paid Supabase tier.
+
+---
+
+## Original pick-up notes (superseded above, kept for the record)
 
 1. Get the anon key into `frontend/.env.local`, replacing `PASTE_THE_ANON_KEY_HERE`.
 

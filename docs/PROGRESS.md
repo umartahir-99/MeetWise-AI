@@ -18,7 +18,7 @@ is blocked and on whom, and the exact next command to run.
 | 3 | M1 — sign in, settings persist | **Done** — 12 checks pass |
 | 4 | M2 — the archive lives in the database | **Done** — 19 checks pass |
 | 5 | M3 — real uploads, Realtime status | **Done** — 11 checks pass, fake pipeline deleted |
-| 6 | M4 — Gladia + Gemini, real AI | Not started — needs both API keys |
+| 6 | M4 — Gladia + Gemini, real AI | **Done** — 25 checks pass on a real recording |
 | 7 | M5 — retention, audio housekeeping | Not started |
 | 8 | M6 — cross-meeting voice identity (optional) | Not started |
 
@@ -94,6 +94,11 @@ key, not an `anon` one; both names are now accepted wherever the key is read.
 
 ### Not done — do not assume otherwise
 
+- `MOCK_QUESTIONS` in `mockData.ts` is dead code now: its `sourceMeetings` name
+  fixture ids that no database row has, so the gate in `retrieval.ts` never
+  lets them fire. Left in place because removing it touches `retrieval.ts`,
+  which is 800 documented lines with no user-visible gain from the change.
+
 - `supabase db reset --linked` has never run, so "the files alone can rebuild
   the database" is proven only for a one-shot push onto an empty project, not
   repeatably.
@@ -122,6 +127,47 @@ because whoever owns a recording is a person too and their name lives in
 
 `ActionItem` gained an optional `id`, and ticking is addressed by row id rather
 than array position, exactly as TRD 4 calls for.
+
+## The product is real
+
+`node backend/scripts/verify-m4.mjs <email> <password> <audio>` — twenty-five
+checks on a real two-voice recording, all passing on the first run:
+
+```
+uploaded → queued → transcribing → analyzing → ready      31 seconds for 78s of audio
+transcript: 35 lines, 2 speakers, heard 4/4 of the words that were said
+gist: "The team decided to delay the mobile app beta launch from Friday to next Tuesday…"
+action items: speaker-2 owns the cache fix, speaker-1 owns the release notes
+quotes: 3, every startMs landing on a real transcript line
+silent file: fails at `transcribing` with "No speech was detected…", retry re-enters
+```
+
+Three edge functions in `backend/supabase/functions/`, deployed with
+`--use-api`. `start-processing` signs a URL and hands it to Gladia;
+`transcription-webhook` is the public door with all three defences from TRD
+7.2; `analyze-meeting` asks Gemini with a `responseSchema` and validates every
+slot and timestamp before writing.
+
+**One deviation from the plan, on purpose.** The plan has a *database webhook*
+fire `analyze-meeting` when status turns `analyzing`. That needs `pg_net` plus a
+secret the trigger can read, which means either a secret in a migration file or
+a Vault entry set by hand. Instead the transcription webhook hands the meeting
+to `analyze-meeting` itself, through `EdgeRuntime.waitUntil`, so it still
+answers Gladia in milliseconds. Same decoupling, no secret in SQL, fully
+reproducible from files.
+
+**Model names.** There is no `gemini-3-flash`; the Flash line runs 3.5 → 3.8.
+The settings screen keeps its product-facing ids and `analyze-meeting` maps them
+to vendor ids in one table (`gemini-3-flash` → `gemini-3.5-flash`), so a vendor
+rename is a one-line change and no saved setting goes stale.
+
+**Only Gladia transcribes.** The transcription-model setting is saved and shown,
+but Deepgram and Whisper are not wired; every job runs through Gladia and
+`processing_jobs.provider` says so. The language setting *is* honoured.
+
+**Voice prints are per-meeting.** `meeting_id:slot` — deterministic, but with no
+cross-meeting meaning. Naming a voice works within one recording; the
+retroactive cross-meeting rename waits on M6, exactly as TRD 10.1 says.
 
 ## Uploads are real, and the timer is gone
 
@@ -273,9 +319,9 @@ a Bash permission rule in `.claude/settings.json`:
 | Credential | Needed at | Where it goes |
 |---|---|---|
 | Supabase anon key | **Now** — Step 2 | `frontend/.env.local` |
-| Gladia API key | Step 7 (M4) | `supabase secrets set GLADIA_API_KEY=…` |
-| Gemini API key | Step 7 (M4) | `supabase secrets set GEMINI_API_KEY=…` |
-| `WEBHOOK_SECRET` | Step 7 (M4) | Generated locally, no account needed |
+| Gladia API key | **Set** | `supabase secrets set GLADIA_API_KEY=…` |
+| Gemini API key | **Set** | `supabase secrets set GEMINI_API_KEY=…` |
+| `WEBHOOK_SECRET` | **Set** | Generated locally, 32 random bytes |
 
 Sign-ups: Gladia at https://app.gladia.io (480 free min/month, diarization
 included). Gemini at https://aistudio.google.com/apikey (~15 req/min, 1,500/day).

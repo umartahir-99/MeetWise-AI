@@ -1,7 +1,10 @@
 # Edge functions
 
-Three of them, all TypeScript on Deno. `start-processing` is deployed and stops at `queued`;
-the other two arrive at M4.
+Three of them, all TypeScript on Deno, all deployed. `_shared/common.ts` holds what they have
+in common: the clients, the readable-failure writer, and the hand-off to analysis.
+
+These are Deno files, not Node. An editor without the Deno extension will flag `Deno` and the
+`npm:` imports as unknown; `deno.json` here is what the extension reads.
 
 Deploy with `supabase functions deploy <name> --use-api` from `backend/` — the `--use-api` flag
 bundles server-side, so Docker is not needed.
@@ -47,5 +50,14 @@ it and every citation and audio jump in the app is off by a factor of a thousand
 the prompt merely requests it. And validate what comes back: every `speakerSlot` must exist in
 `meeting_speakers`, and every quote's `startMs` must land inside a real transcript line. A quote
 with an invented timestamp is a citation that fails silently when clicked.
+
+## One thing the TRD describes differently
+
+TRD 7.3 has a *database webhook* fire `analyze-meeting`. That needs `pg_net` and a secret the
+trigger can read — which means either a secret inside a migration file, or a Vault entry set by
+hand. Neither is reproducible from files alone. So `transcription-webhook` hands the meeting to
+`analyze-meeting` itself, through `EdgeRuntime.waitUntil`, and still answers Gladia in
+milliseconds. `analyze-meeting` accepts only the service-role key, so nothing reachable from a
+browser can trigger it.
 
 Full specification: [../../../docs/TRD.md](../../../docs/TRD.md), section 7.

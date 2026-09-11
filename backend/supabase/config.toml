@@ -416,3 +416,13 @@ enabled = true
 # formatted with uppercase keywords, indent 2, max width 180, trailing commas,
 # and column/key alignment. Set to "null" to emit raw, unformatted SQL.
 # format_options = "{\"keywordCase\":\"upper\",\"indent\":2,\"maxWidth\":180,\"commaStyle\":\"trailing\"}"
+
+# Gladia calls the webhook with no Supabase token, and analyze-meeting is
+# called internally with the service-role key. Both check what they need to
+# check themselves — see the file comment in each — so the gateway must not
+# refuse them for lacking a user JWT.
+[functions.transcription-webhook]
+verify_jwt = false
+
+[functions.analyze-meeting]
+verify_jwt = false

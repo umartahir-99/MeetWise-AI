@@ -111,10 +111,23 @@ if (strangerAuth?.session) {
 const { data: fnData, error: fnError } = await supabase.functions.invoke("start-processing", {
   body: { meetingId },
 });
-check(!fnError && fnData?.status === "queued", "start-processing accepts the owner's request", fnError?.message ?? JSON.stringify(fnData));
+// Since M4 the function hands the file to Gladia rather than stopping at
+// `queued`. The probe is a 44-byte header with no audio in it, so the honest
+// outcome is a refusal - written to the row as a readable reason, never a
+// crash or a silent stall. Either `transcribing` or a reasoned `failed` proves
+// the owner got through; a 401/404 would not.
+check(
+  !fnError && fnData?.meetingId === meetingId && ["transcribing", "failed"].includes(fnData?.status),
+  "start-processing accepts the owner's request",
+  fnError?.message ?? `${fnData?.status}${fnData?.reason ? ": " + fnData.reason.slice(0, 60) : ""}`
+);
 
-const { data: queued } = await supabase.from("meetings").select("status").eq("id", meetingId).maybeSingle();
-check(queued?.status === "queued", "the meeting is now `queued`", queued?.status);
+const { data: moved } = await supabase.from("meetings").select("status, failure_reason").eq("id", meetingId).maybeSingle();
+check(
+  moved?.status !== "uploaded" && (moved?.status !== "failed" || moved?.failure_reason),
+  "the meeting left `uploaded`, and any failure carries a reason",
+  moved?.status
+);
 
 if (strangerAuth?.session) {
   const { data: forged, error: forgedErr } = await stranger.functions.invoke("start-processing", { body: { meetingId } });

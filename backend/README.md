@@ -42,7 +42,8 @@ supabase link --project-ref <your-project-ref>
 
 supabase db push                    # apply the migrations
 node scripts/write-env.mjs          # write frontend/.env.local from the linked project
-supabase functions deploy start-processing --use-api    # no Docker needed
+supabase functions deploy --use-api  # all three; no Docker needed
+supabase secrets set GLADIA_API_KEY=… GEMINI_API_KEY=… WEBHOOK_SECRET=$(openssl rand -hex 32)
 ```
 
 `write-env.mjs` exists because the browser needs the project's publishable key and copying it by
@@ -60,7 +61,12 @@ node scripts/isolation-test.mjs                   # can one user reach another u
 node scripts/verify-m1.mjs                        # do settings and account name survive a sign-out?
 node scripts/verify-m2.mjs <email> <password>     # does the archive round-trip through the mapper?
 node scripts/verify-m3.mjs <email> <password>     # does an upload land, and does Realtime carry status?
+node scripts/verify-m4.mjs <email> <password> <audio>   # does a real recording become a real summary?
 ```
+
+`verify-m4.mjs` needs a recording with speech in it. `scripts/make-test-recording.ps1`
+generates a 78-second two-voice meeting with the Windows speech synthesiser, so the
+test is reproducible without anyone's real audio.
 
 To get something to look at:
 

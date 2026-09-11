@@ -1,21 +1,26 @@
 import React, { useRef, useState } from "react";
 import { motion } from "motion/react";
 import { ArrowLeft, FileAudio, Record, UploadSimple, WarningCircle, X } from "@phosphor-icons/react";
-import type { Meeting } from "../mockData";
 import {
   ACCEPT_ATTR,
   ACCEPTED_EXTENSIONS,
   MAX_UPLOAD_BYTES,
-  createUploadJob,
+  describeUpload,
   formatBytes,
   formatClock,
   readAudioDuration,
   titleFromFileName,
   validateFile,
 } from "../processing";
+import type { UploadDescription } from "../processing";
 
 interface UploadProps {
-  onSubmit: (meeting: Meeting) => void;
+  /**
+   * Hands over what the screen knows and the file itself. The caller creates
+   * the row, moves the file and starts the pipeline - this screen only ever
+   * describes a recording, it never processes one.
+   */
+  onSubmit: (description: UploadDescription, file: File) => void;
   onCancel: () => void;
   /** Live capture is a later phase; it stays reachable but is not the main path. */
   onStartLiveCapture: () => void;
@@ -72,7 +77,7 @@ export const Upload: React.FC<UploadProps> = ({ onSubmit, onCancel, onStartLiveC
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!file) return;
-    onSubmit(createUploadJob({ file, title, durationSec }));
+    onSubmit(describeUpload({ file, title, durationSec }), file);
   };
 
   return (
@@ -243,11 +248,6 @@ export const Upload: React.FC<UploadProps> = ({ onSubmit, onCancel, onStartLiveC
         </button>
       </section>
 
-      {/* Prototype scaffolding, stated plainly rather than hidden. */}
-      <p className="text-[9px] font-medium tracking-[0.18em] text-driftwood/70 uppercase leading-[1.7] max-w-[70ch]">
-        Prototype — processing is simulated in the browser, so no file is uploaded anywhere yet and
-        nothing survives a reload. Name a file with the word “fail” to exercise the failure path.
-      </p>
     </div>
   );
 };

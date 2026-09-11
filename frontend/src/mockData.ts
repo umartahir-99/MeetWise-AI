@@ -101,10 +101,17 @@ export interface Meeting {
    */
   speakers: SpeakerSlot[];
   /**
-   * The recording itself. Absent on the seeded fixtures, which have no audio
-   * file behind them; an upload carries a blob URL for the chosen file.
+   * A playable address for the recording, minted on demand and short-lived.
+   * Absent until the meeting is opened, and absent for good on a meeting whose
+   * audio was discarded - the player falls back to narration on its own.
    */
   audioUrl?: string;
+  /**
+   * Where the recording lives in storage. A key, never a URL: URLs expire and
+   * this does not. It is what a signed `audioUrl` is minted from, and what a
+   * discard deletes.
+   */
+  audioPath?: string;
   gist: string;
   summary: string;
   topics: Topic[];
@@ -125,13 +132,6 @@ export interface Meeting {
   failedStage?: MeetingStatus;
   /** Operator-facing reason shown on the failed screen. */
   failureReason?: string;
-  /**
-   * Prototype-only. There is no backend, so the failure path has to be
-   * triggerable from the client to be reachable at all. Delete this field
-   * along with `useProcessingEngine` once a real job runner exists.
-   */
-  sim?: { failAt?: MeetingStatus; reason?: string };
-
   /** Original upload, kept so the processing screen can show what is being worked on. */
   source?: {
     fileName: string;
@@ -660,71 +660,3 @@ export const MOCK_LIVE_SPEECH_STREAM: { speaker: string; text: string; associate
   { speaker: "Sarah Chen", text: "Excellent work, team. Let's close the sync and schedule the security audit review for Friday." }
 ];
 
-/**
- * What the analysis stage "returns" for an uploaded recording.
- *
- * Stands in for the extraction step: speech-to-text with diarization, then a
- * structured pass that fills the analytical half of `Meeting`. Everything the
- * user supplies (title, duration, upload time) is merged over this in
- * `buildReadyMeeting`, so the same fixture works for any uploaded file.
- */
-export const MOCK_UPLOAD_ANALYSIS: Pick<
-  Meeting,
-  "speakers" | "gist" | "summary" | "topics" | "decisions" | "actionItems" | "quotes" | "transcript" | "tags"
-> = {
-  speakers: [
-    { id: "speaker-1", label: "Speaker 1", voicePrint: "vp-sarah-chen" },
-    { id: "speaker-2", label: "Speaker 2", voicePrint: "vp-unheard-7c2" },
-    { id: "speaker-3", label: "Speaker 3", voicePrint: "vp-unheard-b19" }
-  ],
-  gist: "Agreed to ship the ingest queue behind a flag and hold the migration until the backfill finishes.",
-  summary:
-    "The team walked through the ingest backlog and concluded the queue is ready to go out behind a feature flag. The blocking item is the historical backfill, which is still running and must complete before the schema migration lands. Ownership for the remaining verification work was assigned before the call closed.",
-  topics: [
-    {
-      title: "Ingest queue rollout",
-      details:
-        "Reviewed throughput from the staging soak. The queue held steady at roughly 40 jobs per minute with no dropped messages, which clears the bar for a flagged rollout to a subset of accounts."
-    },
-    {
-      title: "Historical backfill",
-      details:
-        "The backfill is about two thirds through the archive. It must finish before the schema migration runs, otherwise older records land without the new status column."
-    },
-    {
-      title: "Failure handling",
-      details:
-        "Jobs that fail transcription currently retry three times and then stop silently. The group agreed failures need to surface to the person who uploaded the file rather than only to the logs."
-    }
-  ],
-  decisions: [
-    "Ship the ingest queue behind a feature flag rather than to everyone at once.",
-    "Hold the schema migration until the historical backfill reports complete.",
-    "Surface failed jobs to the uploader instead of logging them silently."
-  ],
-  actionItems: [
-    { item: "Enable the ingest flag for the internal account set", speakerId: "speaker-1" },
-    { item: "Report backfill completion percentage on Thursday", speakerId: "speaker-2" },
-    { item: "Add uploader-facing failure notifications to the job runner", speakerId: "speaker-3" }
-  ],
-  quotes: [
-    {
-      quote: "If a job dies and the only place that shows up is a log line, the user has just lost their meeting and doesn't know it yet.",
-      speakerId: "speaker-3",
-      startMs: 91_000
-    }
-  ],
-  transcript: timed([
-    { speakerId: "speaker-1", text: "Let's start with the queue. Where did the soak test land?", startMs: 4_000 },
-    { speakerId: "speaker-2", text: "Steady at about forty jobs a minute over six hours. Nothing dropped, and the retry path never fired.", startMs: 11_000 },
-    { speakerId: "speaker-1", text: "That is good enough to turn on. I would rather do it behind a flag than open it to everyone though.", startMs: 26_000 },
-    { speakerId: "speaker-3", text: "Agreed. Flag it to the internal accounts first and watch it for a week.", startMs: 38_000 },
-    { speakerId: "speaker-2", text: "One blocker — the backfill is still running. It is roughly two thirds done. If the migration lands first, the older rows come through without a status.", startMs: 52_000 },
-    { speakerId: "speaker-1", text: "Then the migration waits. Can you report the percentage on Thursday?", startMs: 69_000 },
-    { speakerId: "speaker-2", text: "I can.", startMs: 75_000 },
-    { speakerId: "speaker-3", text: "The other thing is failures. Right now a job retries three times and then just stops. Nobody hears about it.", startMs: 82_000 },
-    { speakerId: "speaker-3", text: "If a job dies and the only place that shows up is a log line, the user has just lost their meeting and doesn't know it yet.", startMs: 91_000 },
-    { speakerId: "speaker-1", text: "Then that is yours. Get the failure back to whoever uploaded the file.", startMs: 104_000 }
-  ]),
-  tags: ["Engineering", "Upload"]
-};

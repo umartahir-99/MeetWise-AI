@@ -1,7 +1,10 @@
 # Edge functions
 
-Three of them, all TypeScript on Deno. They arrive at milestone M4; this directory is the shape
-they land in.
+Three of them, all TypeScript on Deno. `start-processing` is deployed and stops at `queued`;
+the other two arrive at M4.
+
+Deploy with `supabase functions deploy <name> --use-api` from `backend/` — the `--use-api` flag
+bundles server-side, so Docker is not needed.
 
 ```
 functions/

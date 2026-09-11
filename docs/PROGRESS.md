@@ -17,7 +17,7 @@ is blocked and on whom, and the exact next command to run.
 | 2 | M0b — link, push, prove security | **Done** — all 11 checks pass |
 | 3 | M1 — sign in, settings persist | **Done** — 12 checks pass |
 | 4 | M2 — the archive lives in the database | **Done** — 19 checks pass |
-| 5 | M3 — real uploads, Realtime status | Not started |
+| 5 | M3 — real uploads, Realtime status | **Done** — 11 checks pass, fake pipeline deleted |
 | 6 | M4 — Gladia + Gemini, real AI | Not started — needs both API keys |
 | 7 | M5 — retention, audio housekeeping | Not started |
 | 8 | M6 — cross-meeting voice identity (optional) | Not started |
@@ -122,6 +122,40 @@ because whoever owns a recording is a person too and their name lives in
 
 `ActionItem` gained an optional `id`, and ticking is addressed by row id rather
 than array position, exactly as TRD 4 calls for.
+
+## Uploads are real, and the timer is gone
+
+`node backend/scripts/verify-m3.mjs <email> <password>` — eleven checks, stable
+across repeated runs:
+
+- the row is inserted **before** the file moves, so a refresh mid-upload finds
+  the job in the right state
+- the file lands in storage under `{user_id}/{meeting_id}/`, and **another user
+  cannot download it** (storage policy, separate from RLS)
+- `start-processing` — the first edge function, deployed with `--use-api` so no
+  Docker — accepts the owner and **refuses another user's meeting**
+- **a status change reaches a subscribed client on its own.** This is the check
+  that means the fake pipeline is really gone
+- discard removes the row and the file
+
+Deleted: `useProcessingEngine.ts`, `Meeting.sim`, `plannedFailure()`,
+`buildReadyMeeting()`, `MOCK_UPLOAD_ANALYSIS`, and the "any file with *fail* in
+its name dies" trick. The stage model in `processing.ts` now carries
+`expectedMs` — an estimate for animating the bar *between* real updates, never a
+deadline — and within-stage progress is asymptotic, so the bar cannot claim a
+stage finished before the database does. The screen says "taking longer than
+usual" out loud rather than sitting on a countdown stuck at zero.
+
+**The upload limit is 50 MiB, not 2 GB.** That is the storage tier's ceiling,
+set in `backend/supabase/config.toml` and mirrored in `MAX_UPLOAD_BYTES` so the
+refusal is immediate and readable. Raising it needs a paid tier; raise both
+places together. 50 MiB is roughly an hour of speech-quality M4A, which is why
+the upload screen nudges toward audio-only exports.
+
+**Realtime needed a migration**, not a dashboard click: `meetings` is added to
+the `supabase_realtime` publication in `..._realtime.sql`. The first run after
+pushing it missed the event — the replication slot takes a moment to pick up a
+new table — and every run since has heard it.
 
 ## Nothing is blocking
 

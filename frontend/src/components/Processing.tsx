@@ -19,6 +19,7 @@ import {
   formatClock,
   formatElapsed,
   isTerminal,
+  isRunningLong,
   overallProgress,
   remainingMs,
   stageMeta,
@@ -93,6 +94,10 @@ export const Processing: React.FC<ProcessingProps> = ({
   const failed = meeting.status === "failed";
   const ready = meeting.status === "ready";
   const remaining = remainingMs(meeting, now);
+  // Said out loud rather than left as a countdown stuck on zero. Overrunning
+  // the estimate is normal for a long recording; a bar that looks frozen is
+  // what makes somebody refresh and wonder if they lost it.
+  const runningLong = isRunningLong(meeting, now);
   const elapsed = meeting.uploadedAt ? now - meeting.uploadedAt : 0;
 
   return (
@@ -196,7 +201,13 @@ export const Processing: React.FC<ProcessingProps> = ({
           </div>
 
           <div className="flex flex-wrap items-center justify-between gap-3 text-[10px] font-medium tracking-[0.2em] text-driftwood uppercase">
-            <span>{ready ? "FINISHED" : `ABOUT ${formatElapsed(remaining)} REMAINING`}</span>
+            <span>
+              {ready
+                ? "FINISHED"
+                : runningLong
+                  ? "TAKING LONGER THAN USUAL — STILL WORKING"
+                  : `ABOUT ${formatElapsed(remaining)} REMAINING`}
+            </span>
             <span>YOU CAN LEAVE THIS PAGE — PROCESSING CONTINUES</span>
           </div>
         </section>
@@ -266,8 +277,8 @@ export const Processing: React.FC<ProcessingProps> = ({
         </ol>
 
         <p className="text-[10px] leading-[1.6] font-medium tracking-[0.15em] text-driftwood uppercase max-w-[62ch]">
-          Real processing takes minutes, not seconds — a 45 minute recording transcribes in roughly
-          one to three. This prototype runs the same pipeline on a compressed clock.
+          Each stage advances when the server reports it finished — the bar between updates is an
+          estimate, not a measurement. A 45 minute recording transcribes in roughly one to three.
         </p>
       </section>
 

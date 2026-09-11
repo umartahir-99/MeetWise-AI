@@ -27,7 +27,7 @@ interface SettingsProps {
   meetings: Meeting[];
   settings: AppSettings;
   onChangeSettings: (patch: Partial<AppSettings>) => void;
-  /** The signed-in person, such as sign-in is in a prototype. */
+  /** The signed-in person. */
   account: User;
   onRenameAccount: (name: string) => void;
   /** Every voice the archive has heard, named or not. */
@@ -446,13 +446,14 @@ export const Settings: React.FC<SettingsProps> = ({
       {/* What this build actually is, stated plainly rather than dressed up. */}
       <footer className="flex flex-col gap-3 items-start opacity-50">
         <span className="text-[9px] tracking-[0.15em] text-warm-cream font-medium uppercase leading-[1.8] max-w-[70ch]">
-          * PROTOTYPE BUILD. THERE IS NO BACKEND: PROCESSING IS SIMULATED IN THE BROWSER, THE MODEL
-          AND LANGUAGE CHOICES ABOVE ARE RECORDED BUT NOT YET SENT ANYWHERE, AND NOTHING SURVIVES A
-          PAGE RELOAD. EXPORT AND SPEAKER NAMING WORK FOR REAL.
+          * THE ARCHIVE, YOUR SETTINGS, SPEAKER NAMES AND TICKED ITEMS ALL PERSIST. UPLOADS GO TO
+          STORAGE AND QUEUE FOR PROCESSING. TRANSCRIPTION AND ANALYSIS ARE NOT WIRED UP YET, SO A
+          QUEUED RECORDING WAITS THERE — THE MODEL AND LANGUAGE CHOICES ABOVE ARE SAVED BUT NOT YET
+          USED.
         </span>
         <span className="text-[9px] tracking-[0.15em] text-warm-cream font-medium uppercase leading-[1.8] max-w-[70ch]">
-          * ONCE WIRED UP, RECORDINGS WILL BE SENT TO A THIRD-PARTY TRANSCRIPTION SERVICE AND AN LLM
-          PROVIDER FOR ANALYSIS.
+          * WHEN THEY ARE, RECORDINGS WILL BE SENT TO A THIRD-PARTY TRANSCRIPTION SERVICE AND AN
+          LLM PROVIDER FOR ANALYSIS.
         </span>
       </footer>
     </div>

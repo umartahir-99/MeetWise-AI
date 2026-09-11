@@ -9,11 +9,12 @@ import type { Meeting, TranscriptLine } from "./mockData";
  * search citation all seek the same way.
  *
  * There are two engines behind that playhead, because there are two kinds of
- * meeting in this prototype:
+ * meeting:
  *
- * - `recording` - the meeting has a real `audioUrl` (an upload does), so an
- *   `Audio` element plays the actual file.
- * - `narration` - the seeded fixtures have no audio file behind them. Rather
+ * - `recording` - the meeting has a real `audioUrl` (an upload does, once its
+ *   signed URL has been minted), so an `Audio` element plays the actual file.
+ * - `narration` - there is no audio file: the sample archive never had one,
+ *   and a meeting whose recording was discarded no longer does. Rather
  *   than pretend, the browser's speech synthesis reads the transcript line the
  *   playhead is sitting on. It is a stand-in for the recording, labelled as
  *   one in the UI, and it makes the interaction real rather than mimed.

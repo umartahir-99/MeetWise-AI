@@ -133,10 +133,11 @@ export function toMeeting(row: MeetingRowWithChildren): Meeting {
 
   if (row.failed_stage) meeting.failedStage = row.failed_stage;
   if (row.failure_reason) meeting.failureReason = row.failure_reason;
+  if (row.audio_path) meeting.audioPath = row.audio_path;
 
-  // `audioUrl` is deliberately absent. The bucket is private, so playback needs
-  // a signed URL minted on demand; until then the player falls back to
-  // narration by itself, which is exactly what it is built to do.
+  // `audioUrl` is deliberately absent here. The bucket is private, so playback
+  // needs a signed URL minted when the meeting is opened; until then the player
+  // falls back to narration by itself, which is exactly what it is built to do.
   if (row.source_file_name) {
     meeting.source = {
       fileName: row.source_file_name,

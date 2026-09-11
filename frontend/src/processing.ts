@@ -1,4 +1,3 @@
-import { CURRENT_USER_ID, MOCK_UPLOAD_ANALYSIS } from "./mockData";
 import type { Meeting, MeetingStatus } from "./mockData";
 import { formatOffsetClock } from "./datetime";
 
@@ -11,10 +10,11 @@ import { formatOffsetClock } from "./datetime";
  * rather than a spinner, and every stage below is something the user can be
  * told about while they wait.
  *
- * `durationMs` is the *simulated* length of each stage. `realWorldNote` is
- * what the stage actually costs once a real speech-to-text service sits
- * behind it - shown in the UI so the compressed prototype timing never reads
- * as a promise about production.
+ * The stages advance because the database says so - the browser is subscribed
+ * to its own meeting row, and a stage ends when the row moves. `expectedMs` is
+ * only an estimate used to animate the bar *within* a stage while nothing has
+ * arrived yet; it never decides when a stage is over. `realWorldNote` says the
+ * same thing in the user's language.
  */
 export interface PipelineStage {
   id: Exclude<MeetingStatus, "failed">;
@@ -23,7 +23,8 @@ export interface PipelineStage {
   description: string;
   /** Honest production expectation for a ~45 minute recording. */
   realWorldNote: string;
-  durationMs: number;
+  /** Rough length, for animating the bar between real updates. Never a deadline. */
+  expectedMs: number;
 }
 
 export const PIPELINE_STAGES: readonly PipelineStage[] = [
@@ -32,42 +33,42 @@ export const PIPELINE_STAGES: readonly PipelineStage[] = [
     label: "UPLOADED",
     description: "Transferring the file and verifying it decodes.",
     realWorldNote: "Seconds to a minute, depending on connection.",
-    durationMs: 2800,
+    expectedMs: 15_000,
   },
   {
     id: "queued",
     label: "QUEUED",
     description: "Waiting for a transcription worker to pick the job up.",
     realWorldNote: "Usually immediate; longer under load.",
-    durationMs: 3000,
+    expectedMs: 5_000,
   },
   {
     id: "transcribing",
     label: "TRANSCRIBING",
     description: "Speech to text, with each speaker separated out.",
     realWorldNote: "About 1 to 3 minutes for a 45 minute recording.",
-    durationMs: 7000,
+    expectedMs: 120_000,
   },
   {
     id: "analyzing",
     label: "ANALYZING",
     description: "Pulling out topics, decisions, owners and quotes.",
     realWorldNote: "Under a minute once the transcript exists.",
-    durationMs: 5200,
+    expectedMs: 45_000,
   },
   {
     id: "ready",
     label: "READY",
     description: "Written to the archive and searchable.",
     realWorldNote: "",
-    durationMs: 0,
+    expectedMs: 0,
   },
 ] as const;
 
 /** Stages that actually run. `ready` is the finish line, not a step. */
 const RUNNING_STAGES = PIPELINE_STAGES.filter((s) => s.id !== "ready");
 
-const TOTAL_PIPELINE_MS = RUNNING_STAGES.reduce((sum, s) => sum + s.durationMs, 0);
+const TOTAL_PIPELINE_MS = RUNNING_STAGES.reduce((sum, s) => sum + s.expectedMs, 0);
 
 export function stageMeta(status: MeetingStatus): PipelineStage | undefined {
   return PIPELINE_STAGES.find((s) => s.id === status);
@@ -96,11 +97,21 @@ export function nextStatus(status: MeetingStatus): MeetingStatus | undefined {
   return PIPELINE_STAGES[i + 1].id;
 }
 
-/** How far through the current stage, 0..1. */
+/**
+ * How far through the current stage, 0..1 - but never quite 1.
+ *
+ * Asymptotic rather than linear: the bar keeps creeping however long a stage
+ * takes, and it cannot claim a stage is finished before the database does.
+ * A bar that hits 100% and then sits there is a bar that is lying, and a
+ * transcription that runs long is the normal case, not the exception.
+ */
+const STAGE_CEILING = 0.94;
+
 export function stageProgress(meeting: Meeting, now: number): number {
   const stage = stageMeta(meeting.status);
-  if (!stage || !meeting.stageStartedAt || stage.durationMs === 0) return 0;
-  return clamp01((now - meeting.stageStartedAt) / stage.durationMs);
+  if (!stage || !meeting.stageStartedAt || stage.expectedMs === 0) return 0;
+  const elapsed = Math.max(0, now - meeting.stageStartedAt);
+  return STAGE_CEILING * (1 - Math.exp(-elapsed / stage.expectedMs));
 }
 
 /**
@@ -115,17 +126,30 @@ export function overallProgress(meeting: Meeting, now: number): number {
   const index = RUNNING_STAGES.findIndex((s) => s.id === reference);
   if (index < 0) return 0;
 
-  const elapsedBefore = RUNNING_STAGES.slice(0, index).reduce((sum, s) => sum + s.durationMs, 0);
+  const elapsedBefore = RUNNING_STAGES.slice(0, index).reduce((sum, s) => sum + s.expectedMs, 0);
   const withinStage =
-    meeting.status === "failed" ? 0 : stageProgress(meeting, now) * RUNNING_STAGES[index].durationMs;
+    meeting.status === "failed" ? 0 : stageProgress(meeting, now) * RUNNING_STAGES[index].expectedMs;
 
   return clamp01((elapsedBefore + withinStage) / TOTAL_PIPELINE_MS);
 }
 
-/** Simulated milliseconds left before the job is readable. */
+/**
+ * A rough estimate of the time left, for the countdown.
+ *
+ * Built from the stage estimates, so it is only ever approximate - and once a
+ * stage runs past its estimate it stops shrinking rather than going negative.
+ * The screen words it as "about", which is the truth.
+ */
 export function remainingMs(meeting: Meeting, now: number): number {
   if (isTerminal(meeting.status)) return 0;
   return Math.max(0, TOTAL_PIPELINE_MS * (1 - overallProgress(meeting, now)));
+}
+
+/** Whether the current stage has run past its estimate. Worth saying out loud. */
+export function isRunningLong(meeting: Meeting, now: number): boolean {
+  const stage = stageMeta(meeting.status);
+  if (!stage || !meeting.stageStartedAt || isTerminal(meeting.status)) return false;
+  return now - meeting.stageStartedAt > stage.expectedMs * 1.5;
 }
 
 function clamp01(n: number): number {
@@ -150,7 +174,18 @@ export const ACCEPTED_EXTENSIONS = [
 /** Matches the `accept` attribute on the file input. */
 export const ACCEPT_ATTR = ACCEPTED_EXTENSIONS.map((e) => `.${e}`).join(",") + ",audio/*,video/*";
 
-export const MAX_UPLOAD_BYTES = 500 * 1024 * 1024;
+/**
+ * What storage will actually accept.
+ *
+ * The project's storage tier caps a single object at 50 MiB, and the limit
+ * lives in `backend/supabase/config.toml` under `[storage]`. This constant
+ * mirrors it so the refusal happens here, with a readable message, rather than
+ * after a full upload with an opaque one. Raise both together, never one.
+ *
+ * 50 MiB is roughly an hour of M4A at speech quality, which is why the upload
+ * screen nudges toward audio-only exports for long meetings.
+ */
+export const MAX_UPLOAD_BYTES = 50 * 1024 * 1024;
 
 /** Returns a human-readable reason the file cannot be accepted, or null. */
 export function validateFile(file: File): string | null {
@@ -211,20 +246,6 @@ export function titleFromFileName(fileName: string): string {
     .trim();
 }
 
-/**
- * Prototype affordance: there is no server, so the failure branch would be
- * unreachable - and therefore undesigned - without a trigger. Any file with
- * "fail" in its name dies during transcription. A retry always succeeds.
- */
-function plannedFailure(fileName: string): Meeting["sim"] {
-  if (!/fail/i.test(fileName)) return undefined;
-  return {
-    failAt: "transcribing",
-    reason:
-      "No speech detected in the first 90 seconds. The file may be silent, or its audio track may be empty.",
-  };
-}
-
 export interface UploadInput {
   file: File;
   /** Falls back to the file name when the user leaves the field alone. */
@@ -232,7 +253,6 @@ export interface UploadInput {
   durationSec?: number;
 }
 
-/** Builds the meeting record that enters the pipeline at `uploaded`. */
 /**
  * Best guess at when the meeting actually happened.
  *
@@ -246,61 +266,29 @@ function inferStartedAt(file: File, durationMs: number, now: number): string {
   return new Date(recordingEnded - durationMs).toISOString();
 }
 
-export function createUploadJob({ file, title, durationSec }: UploadInput): Meeting {
+/** What a meeting is before it has been processed - everything the upload knows. */
+export interface UploadDescription {
+  title: string;
+  startedAt: string;
+  durationMs: number;
+  source: { fileName: string; fileSize: number; durationSec?: number };
+}
+
+/**
+ * Everything the upload screen can say about a recording before the pipeline
+ * has touched it. The row itself is created by the database, which is where
+ * the id comes from.
+ */
+export function describeUpload({ file, title, durationSec }: UploadInput): UploadDescription {
   const now = Date.now();
   const trimmed = title.trim();
   const durationMs = durationSec ? Math.round(durationSec * 1000) : 0;
 
   return {
-    id: `upload-${now.toString(36)}`,
     title: trimmed || titleFromFileName(file.name) || "Untitled recording",
     startedAt: inferStartedAt(file, durationMs, now),
     durationMs,
-    ownerId: CURRENT_USER_ID,
-    // A real handle on the chosen file. Revoked when the job is discarded.
-    audioUrl: URL.createObjectURL(file),
-
-    // The analytical half stays empty until the analysis stage fills it. A job
-    // still in flight genuinely has no topics yet, and the UI reads that.
-    // Speakers arrive with diarization, so there is nothing to name yet.
-    speakers: [],
-    gist: "",
-    summary: "",
-    topics: [],
-    decisions: [],
-    actionItems: [],
-    quotes: [],
-    transcript: [],
-    tags: [],
-
-    status: "uploaded",
-    stageStartedAt: now,
-    uploadedAt: now,
-    sim: plannedFailure(file.name),
     source: { fileName: file.name, fileSize: file.size, durationSec },
-  };
-}
-
-/**
- * What the pipeline hands back when analysis completes: the fixture content,
- * merged over everything the upload already knew.
- */
-export function buildReadyMeeting(meeting: Meeting, discardAudio = false): Meeting {
-  const durationSec = meeting.source?.durationSec;
-
-  return {
-    ...meeting,
-    // The retention setting: keep the transcript, drop the recording. The blob
-    // itself is released when the tab goes away.
-    audioUrl: discardAudio ? undefined : meeting.audioUrl,
-    ...MOCK_UPLOAD_ANALYSIS,
-    // The fixture transcript describes a 45 minute meeting; fall back to that
-    // when the browser could not decode a real length from the file.
-    durationMs: durationSec ? Math.round(durationSec * 1000) : 45 * 60_000,
-    status: "ready",
-    stageStartedAt: undefined,
-    failedStage: undefined,
-    failureReason: undefined,
   };
 }
 

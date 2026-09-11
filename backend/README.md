@@ -42,6 +42,7 @@ supabase link --project-ref <your-project-ref>
 
 supabase db push                    # apply the migrations
 node scripts/write-env.mjs          # write frontend/.env.local from the linked project
+supabase functions deploy start-processing --use-api    # no Docker needed
 ```
 
 `write-env.mjs` exists because the browser needs the project's publishable key and copying it by
@@ -58,6 +59,7 @@ node scripts/verify-schema.mjs                    # do the row types still descr
 node scripts/isolation-test.mjs                   # can one user reach another user's rows?
 node scripts/verify-m1.mjs                        # do settings and account name survive a sign-out?
 node scripts/verify-m2.mjs <email> <password>     # does the archive round-trip through the mapper?
+node scripts/verify-m3.mjs <email> <password>     # does an upload land, and does Realtime carry status?
 ```
 
 To get something to look at:

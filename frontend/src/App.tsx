@@ -17,9 +17,9 @@ import { Settings } from "./components/Settings";
 import { Upload } from "./components/Upload";
 import { Commitments } from "./components/Commitments";
 import { Processing } from "./components/Processing";
-import { useProcessingEngine } from "./useProcessingEngine";
 import { useSmoothScroll } from "./useSmoothScroll";
 import { isReadable } from "./processing";
+import type { UploadDescription } from "./processing";
 import { MotionConfig } from "motion/react";
 import type { User as AuthUser } from "@supabase/supabase-js";
 import { SUPABASE_CONFIGURED, supabase } from "./lib/supabase";
@@ -27,7 +27,15 @@ import { useSession } from "./useSession";
 import { Auth, SupabaseNotConfigured } from "./components/Auth";
 import { loadProfile, loadSettings, renameAccount, saveSettings } from "./api/settings";
 import { useArchive } from "./useArchive";
-import { deleteMeetings, setActionItemDone } from "./api/meetings";
+import {
+  attachRecording,
+  createMeeting,
+  deleteMeetings,
+  markFailed,
+  setActionItemDone,
+  startProcessing,
+} from "./api/meetings";
+import { recordingPath, removeRecording, signedRecordingUrl, uploadRecording } from "./api/storage";
 import { forgetVoice, nameVoice } from "./api/voices";
 
 /** Landing sections, in the order they appear down the page. */
@@ -132,9 +140,6 @@ function AppShell({ user }: { user: AuthUser }) {
 
   const voiceRoster = useMemo(() => speakers.roster(meetings), [speakers, meetings]);
 
-  // Walks any uploaded meeting through the ingest pipeline.
-  useProcessingEngine(meetings, setMeetings, settings.discardAudioAfterProcessing);
-
   // Page-level smooth scrolling. Nav jumps go through it too, so a click and a
   // wheel move the page the same way instead of two different ways.
   const { scrollTo } = useSmoothScroll();
@@ -180,6 +185,18 @@ function AppShell({ user }: { user: AuthUser }) {
     setSelectedMeetingId(id);
     setPendingSeekMs(startMs);
     setView(isReadable(target) ? "detail" : "processing");
+
+    // The bucket is private, so a recording has no standing address. One is
+    // minted as the meeting opens and lasts an hour - long enough to listen,
+    // short enough that a leaked link is not a leaked archive. The player
+    // narrates until it arrives, and forever if it never does.
+    if (target.audioPath && !target.audioUrl) {
+      signedRecordingUrl(target.audioPath)
+        .then((url) =>
+          setMeetings((prev) => prev.map((m) => (m.id === id ? { ...m, audioUrl: url } : m)))
+        )
+        .catch((failure) => console.error("Could not sign the recording", failure));
+    }
   };
 
   const handleStartUpload = () => {
@@ -187,15 +204,75 @@ function AppShell({ user }: { user: AuthUser }) {
     setView("upload");
   };
 
-  /** A freshly uploaded file enters the pipeline and opens on its status screen. */
-  const handleUploadSubmit = (job: Meeting) => {
-    setMeetings((prev) => [job, ...prev]);
-    setSelectedMeetingId(job.id);
+  /**
+   * A recording enters the pipeline.
+   *
+   * The row is inserted first and the status screen opens on it straight away,
+   * so the wait is watched rather than endured - and so a refresh mid-upload
+   * finds a meeting in the archive rather than nothing. Then the file goes up,
+   * the row learns where it landed, and the pipeline is told to start. Any
+   * step that fails writes a reason the status screen can show, and leaves the
+   * row in place so a retry does not begin from zero.
+   */
+  const handleUploadSubmit = async (description: UploadDescription, file: File) => {
+    let created: Meeting;
+    try {
+      created = await createMeeting(user.id, description);
+    } catch (failure) {
+      console.error("Could not create the meeting", failure);
+      alert("COULD NOT START THE UPLOAD. CHECK YOUR CONNECTION AND TRY AGAIN.");
+      return;
+    }
+
+    setMeetings((prev) => [created, ...prev]);
+    setSelectedMeetingId(created.id);
     setView("processing");
+
+    const path = recordingPath(user.id, created.id, file.name);
+    try {
+      await uploadRecording(path, file);
+      await attachRecording(created.id, path);
+      setMeetings((prev) =>
+        prev.map((m) => (m.id === created.id ? { ...m, audioPath: path } : m))
+      );
+      await startProcessing(created.id);
+    } catch (failure) {
+      const reason =
+        failure instanceof Error && /size|too large|exceeded/i.test(failure.message)
+          ? "The file is larger than storage accepts. Export the meeting as audio only and try again."
+          : failure instanceof Error
+            ? failure.message
+            : "The upload did not complete.";
+      console.error("Upload failed", failure);
+      // Written to the row rather than only shown, so the reason survives a
+      // refresh and the Realtime subscription paints it wherever it is seen.
+      markFailed(created.id, "uploaded", reason).catch(() => {});
+      setMeetings((prev) =>
+        prev.map((m) =>
+          m.id === created.id
+            ? { ...m, status: "failed" as const, failedStage: "uploaded" as const, failureReason: reason }
+            : m
+        )
+      );
+    }
   };
 
-  /** Re-queues a failed job. The retry starts from the queue, not the upload. */
+  /**
+   * Re-queues a failed job. The retry starts from the queue, not the upload:
+   * the file is still in storage, which is why the status screen can promise
+   * that retrying reuses it. A job that failed *during* upload has no file to
+   * reuse, so that one is sent back through the upload screen instead.
+   */
   const handleRetryProcessing = (id: string) => {
+    const target = meetings.find((m) => m.id === id);
+    if (!target) return;
+
+    if (!target.audioPath) {
+      handleDiscardUpload(id);
+      handleStartUpload();
+      return;
+    }
+
     setMeetings((prev) =>
       prev.map((m) =>
         m.id === id
@@ -209,19 +286,32 @@ function AppShell({ user }: { user: AuthUser }) {
           : m
       )
     );
+    startProcessing(id).catch((failure) => {
+      console.error("Could not restart processing", failure);
+      const reason = failure instanceof Error ? failure.message : "Could not restart processing.";
+      markFailed(id, "queued", reason).catch(() => {});
+    });
   };
 
+  /** Throw the job away: the row, and the file it put in storage. */
   const handleDiscardUpload = (id: string) => {
-    setMeetings((prev) => {
-      // The blob URL is a live handle on the user's file; drop it with the job.
-      const doomed = prev.find((m) => m.id === id);
-      if (doomed?.audioUrl) URL.revokeObjectURL(doomed.audioUrl);
-      return prev.filter((m) => m.id !== id);
-    });
+    const doomed = meetings.find((m) => m.id === id);
+    setMeetings((prev) => prev.filter((m) => m.id !== id));
     setSelectedMeetingId(null);
     setView("landing");
     const target = returnSection.current;
     requestAnimationFrame(() => scrollToSection(target));
+
+    // Row first, then the file. If the row delete fails the archive reloads
+    // and the job reappears; a file left behind by a failed second step is
+    // orphaned storage rather than a visible bug, and the nightly sweep at M5
+    // is for exactly that.
+    deleteMeetings([id])
+      .then(() => (doomed?.audioPath ? removeRecording(doomed.audioPath) : undefined))
+      .catch((failure) => {
+        console.error("Could not discard the upload", failure);
+        void refresh();
+      });
   };
 
   const handleBackFromDetail = () => {

@@ -83,3 +83,79 @@ export async function setActionItemDone(id: string, done: boolean): Promise<void
 
   if (error) throw error;
 }
+
+/** What the upload screen knows before anything has been processed. */
+export interface NewMeeting {
+  title: string;
+  startedAt: string;
+  durationMs: number;
+  source: { fileName: string; fileSize: number; durationSec?: number };
+}
+
+/**
+ * The row an upload starts as: `uploaded`, with nothing analysed yet.
+ *
+ * Inserted before the file goes up, because the file's storage path needs the
+ * meeting's id — and because a row that exists from the first second is what
+ * lets a refresh mid-upload find the job rather than lose it.
+ */
+export async function createMeeting(ownerId: string, input: NewMeeting): Promise<Meeting> {
+  const { data, error } = await supabase
+    .from("meetings")
+    .insert({
+      owner_id: ownerId,
+      title: input.title,
+      started_at: input.startedAt,
+      duration_ms: input.durationMs,
+      status: "uploaded",
+      source_file_name: input.source.fileName,
+      source_file_size: input.source.fileSize,
+      source_duration_sec: input.source.durationSec ?? null,
+      uploaded_at: new Date().toISOString(),
+      stage_started_at: new Date().toISOString(),
+    })
+    .select(MEETING_TREE)
+    .single<MeetingRowWithChildren>();
+
+  if (error) throw error;
+  return toMeeting(data);
+}
+
+/** Record where the recording landed, once it has. */
+export async function attachRecording(meetingId: string, audioPath: string): Promise<void> {
+  const { error } = await supabase
+    .from("meetings")
+    .update({ audio_path: audioPath })
+    .eq("id", meetingId);
+
+  if (error) throw error;
+}
+
+/**
+ * Hand the meeting to the pipeline.
+ *
+ * Goes through the edge function rather than updating the row directly,
+ * because from M4 on this is where the transcription service is called — and
+ * that needs a signed URL and a secret the browser must never hold.
+ */
+export async function startProcessing(meetingId: string): Promise<void> {
+  const { error } = await supabase.functions.invoke("start-processing", {
+    body: { meetingId },
+  });
+
+  if (error) throw error;
+}
+
+/** Write a failure onto the row, so the status screen can say what went wrong. */
+export async function markFailed(
+  meetingId: string,
+  stage: Meeting["status"],
+  reason: string
+): Promise<void> {
+  const { error } = await supabase
+    .from("meetings")
+    .update({ status: "failed", failed_stage: stage, failure_reason: reason })
+    .eq("id", meetingId);
+
+  if (error) throw error;
+}

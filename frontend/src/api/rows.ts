@@ -37,6 +37,10 @@ export interface VoiceRow {
   voice_print: string;
   person_id: string | null;
   created_at: string;
+  /** Set when the person was assigned by a voice match rather than typed. */
+  matched_from_voice_print: string | null;
+  /** Cosine similarity that produced the match, 0..1. Null when a person typed the name. */
+  match_score: number | null;
 }
 
 export interface MeetingSpeakerRow {
@@ -47,6 +51,8 @@ export interface MeetingSpeakerRow {
   label: string;
   voice_print: string;
   position: number;
+  /** 512-dim speaker embedding as pgvector renders it; null until computed. */
+  embedding: string | null;
 }
 
 export interface TranscriptLineRow {

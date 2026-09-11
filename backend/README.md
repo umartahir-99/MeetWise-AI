@@ -64,6 +64,7 @@ node scripts/verify-m3.mjs <email> <password>     # does an upload land, and doe
 node scripts/verify-m4.mjs <email> <password> <audio>   # does a real recording become a real summary?
 node scripts/verify-reaper.mjs <email> <password>       # does a stuck job become retryable? (waits on cron, ~5 min)
 node scripts/verify-m5.mjs                              # do expired meetings and their files go? (own throwaway account)
+node scripts/verify-m6.mjs                              # does a known voice match across meetings? (synthetic vectors)
 node scripts/bench-pipeline.mjs <email> <password> <audio> [label] [--dump]   # where does the time go?
 ```
 

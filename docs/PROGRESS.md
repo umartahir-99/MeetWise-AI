@@ -20,7 +20,7 @@ is blocked and on whom, and the exact next command to run.
 | 5 | M3 — real uploads, Realtime status | **Done** — 11 checks pass, fake pipeline deleted |
 | 6 | M4 — Gladia + Gemini, real AI | **Done** — 25 checks pass on a real recording |
 | 7 | M5 — retention, audio housekeeping | **Done** — 12 checks pass |
-| 8 | M6 — cross-meeting voice identity (optional) | Not started |
+| 8 | M6 — cross-meeting voice identity (optional) | **Database half done** — 9 checks; the model half needs a decision |
 
 
 ---
@@ -370,13 +370,48 @@ fallback's trigger. Umar can confirm on his next upload with the toggle on.
 **Not observable yet:** the nightly run itself fires at 03:15 UTC. Its effect
 is visible in the Supabase dashboard's function logs the morning after.
 
+### Step 8 (M6) — the database half, 2026-09-11
+
+`pgvector` is in; `meeting_speakers.embedding vector(512)` with an HNSW cosine
+index; `match_voice(query, min_score)` runs as the caller so RLS scopes it;
+`voices.matched_from_voice_print` and `match_score` record any automatic match
+so the panel can show it and a click can undo it — never a silent merge.
+
+`node backend/scripts/verify-m6.mjs`, nine checks with synthetic vectors: the
+same voice in a new recording matches at 0.93; a 0.62 resemblance is refused;
+a stranger matches nobody; an unnamed voice is never offered as a match even
+to itself; the match is recorded with source and score; undo clears it; another
+user's identical vector matches nothing.
+
+**What is not built: the model.** The plan named pyannote (needs a GPU server)
+or Azure Speaker Recognition (paid, and since retired). Under a strict
+zero-cost constraint the only route is a speaker-verification model run in
+the browser — `Xenova/wavlm-base-plus-sv` via transformers.js, ~90 MB
+downloaded once per device, producing the 512-dim vector this schema holds.
+
+The feasibility test could not run: the model's Node runtime is a ~150 MB
+package, and npm timed out on it three times over forty minutes on this
+connection. That is itself the relevant finding — a 90 MB in-browser download
+on the same connection is a real cost, not a footnote — and it is why nothing
+was written blind. This project's rule has been that nothing ships as working
+that has not run.
+
+**To finish M6, one of:**
+- accept the one-time model download and build the browser half
+  (`api/voiceprints.ts`: fetch the signed audio, slice each speaker's lines,
+  run WavLM-SV, save the vector, call `match_voice`, show the match in
+  `SpeakerPanel` with undo) — about 150 lines, and Umar verifies in the browser
+- or keep per-meeting naming, which is honest and works today
+
+Until then the schema is inert: no embedding is ever written, so `match_voice`
+never returns a row, and naming stays per recording exactly as before.
+
 ### Still to do, in order
 
-1. Watch `processing_jobs` on Umar's next real upload: it will say where the
+1. Decide M6's model half (above).
+2. Watch `processing_jobs` on Umar's next real upload: it will say where the
    2:30 went, and whether `low` keeps producing fewer quotes on real meetings.
-2. The `MINE` fix, when a real meeting with tasks makes the case for it.
-3. Step 8 (M6, optional): cross-meeting voice identity. Voice prints are
-   `meeting_id:slot` today, so naming works within one recording only.
+3. The `MINE` fix, when a real meeting with tasks makes the case for it.
 
 ---
 

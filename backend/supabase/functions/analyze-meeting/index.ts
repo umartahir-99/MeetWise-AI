@@ -25,7 +25,11 @@ import { adminClient, env, json, markFailed } from "../_shared/common.ts";
 const MODEL_FOR: Record<string, string> = {
   "gemini-3-flash": "gemini-3.5-flash",
   "gemini-3-1-flash-lite": "gemini-3.1-flash-lite",
-  "gemini-2-5-pro": "gemini-2.5-pro",
+  "gemini-3-1-pro": "gemini-3.1-pro-preview",
+  // Legacy. Google withdrew gemini-2.5-pro from new accounts (the API answers
+  // 404 and names 3.1 Pro as the replacement), so anyone who saved this id
+  // before the settings screen caught up lands on the model Google points to.
+  "gemini-2-5-pro": "gemini-3.1-pro-preview",
 };
 const DEFAULT_MODEL = "gemini-3.5-flash";
 
@@ -162,23 +166,57 @@ Deno.serve(async (req) => {
       transcript,
     ].join("\n");
 
-    const model = MODEL_FOR[settings?.analysis_model ?? ""] ?? DEFAULT_MODEL;
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${env("GEMINI_API_KEY")}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [{ role: "user", parts: [{ text: prompt }] }],
-          generationConfig: {
-            responseMimeType: "application/json",
-            responseSchema: RESPONSE_SCHEMA,
-            temperature: 0.2,
-          },
-        }),
-      }
-    );
+    const requested = MODEL_FOR[settings?.analysis_model ?? ""] ?? DEFAULT_MODEL;
 
+    /**
+     * One call to Gemini. Returns the response and the model that actually
+     * answered — which is the requested one unless Google has retired it since
+     * the settings screen last saw the list. A 404 there is a vendor rename,
+     * not a fault in the recording, and must not fail the meeting: the default
+     * model answers instead and the response says so.
+     */
+    const generate = async (model: string) =>
+      fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${env("GEMINI_API_KEY")}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [{ role: "user", parts: [{ text: prompt }] }],
+            generationConfig: {
+              responseMimeType: "application/json",
+              responseSchema: RESPONSE_SCHEMA,
+              temperature: 0.2,
+            },
+          }),
+        }
+      );
+
+    let model = requested;
+    let response = await generate(model);
+
+    // Two reasons a chosen model cannot answer, neither the recording's fault:
+    // 404, the vendor retired it; 429, the account is not entitled to it (Pro
+    // needs billing) or its quota is spent. Either way the transcript already
+    // cost real minutes to make, so the default model answers rather than the
+    // meeting failing. The downgrade is logged, not hidden.
+    if ((response.status === 404 || response.status === 429) && requested !== DEFAULT_MODEL) {
+      const detail = await response.text().catch(() => "");
+      console.warn(
+        `gemini ${response.status} on ${requested}, falling back to ${DEFAULT_MODEL}`,
+        meeting.id,
+        detail.slice(0, 200)
+      );
+      model = DEFAULT_MODEL;
+      response = await generate(model);
+    }
+
+    if (response.status === 429) {
+      throw new Error(
+        "The analysis model's quota is used up for now. Wait a few minutes and retry, " +
+          "or check the Gemini API quota on your Google account."
+      );
+    }
     if (!response.ok) {
       const detail = await response.text().catch(() => "");
       throw new Error(`The analysis model refused (${response.status}): ${detail.slice(0, 300)}`);
@@ -283,6 +321,8 @@ Deno.serve(async (req) => {
     return json(200, {
       ok: true,
       model,
+      requested,
+      downgraded: model !== requested,
       topics: analysis.topics?.length ?? 0,
       decisions: analysis.decisions?.length ?? 0,
       actionItems: actionItems.length,

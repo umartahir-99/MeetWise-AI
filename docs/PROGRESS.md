@@ -156,10 +156,21 @@ to `analyze-meeting` itself, through `EdgeRuntime.waitUntil`, so it still
 answers Gladia in milliseconds. Same decoupling, no secret in SQL, fully
 reproducible from files.
 
-**Model names.** There is no `gemini-3-flash`; the Flash line runs 3.5 → 3.8.
-The settings screen keeps its product-facing ids and `analyze-meeting` maps them
-to vendor ids in one table (`gemini-3-flash` → `gemini-3.5-flash`), so a vendor
-rename is a one-line change and no saved setting goes stale.
+**Model names, and what happens when the vendor moves them.** There is no
+`gemini-3-flash`; the Flash line runs 3.5 → 3.8. And Google has withdrawn
+`gemini-2.5-pro` from new accounts entirely — the API answers 404 and names
+`gemini-3.1-pro-preview` as the replacement, while the docs still list 2.5 Pro
+as stable. Found by Umar on a real upload on 2026-09-11.
+
+So the settings screen keeps product-facing ids and `analyze-meeting` maps them
+to vendor ids in one table. The old `gemini-2-5-pro` id stays in the map as a
+legacy entry pointing at 3.1 Pro, so anyone who saved it is not stranded; the
+dropdown now offers "Gemini 3.1 Pro". And **a 404 or 429 on the chosen model
+falls back to the default Flash model** rather than failing the meeting — the
+transcript already cost real minutes to make, and a vendor retiring a model or
+an account lacking Pro entitlement is not the recording's fault. The downgrade
+is logged and reported in the function's response, not hidden. If even Flash
+returns 429, the failure reason says the quota is spent and to retry later.
 
 **Only Gladia transcribes.** The transcription-model setting is saved and shown,
 but Deepgram and Whisper are not wired; every job runs through Gladia and

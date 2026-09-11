@@ -59,9 +59,9 @@ export const ANALYSIS_MODELS: ModelOption[] = [
     note: "Fastest and cheapest. Suited to short stand-ups rather than long reviews.",
   },
   {
-    id: "gemini-2-5-pro",
-    name: "GEMINI 2.5 PRO",
-    note: "Deepest reading. Paid — Google dropped Pro from the free tier in April 2026.",
+    id: "gemini-3-1-pro",
+    name: "GEMINI 3.1 PRO",
+    note: "Deepest reading. Paid — Google withdrew the 2.5 Pro line from new accounts.",
   },
 ];
 

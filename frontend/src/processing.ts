@@ -23,8 +23,17 @@ export interface PipelineStage {
   description: string;
   /** Honest production expectation for a ~45 minute recording. */
   realWorldNote: string;
-  /** Rough length, for animating the bar between real updates. Never a deadline. */
+  /**
+   * Rough length, for animating the bar between real updates. Never a deadline.
+   *
+   * `expectedMs` is the fixed part; `perMinuteMs` is added per minute of
+   * recording. Both come from timing the deployed pipeline (five runs, 1:18
+   * and 9:46 of audio): start and transcription were flat regardless of
+   * length, analysis grew gently. The numbers are medians, so about half of
+   * real runs will beat them and half will run over.
+   */
   expectedMs: number;
+  perMinuteMs: number;
 }
 
 export const PIPELINE_STAGES: readonly PipelineStage[] = [
@@ -32,29 +41,39 @@ export const PIPELINE_STAGES: readonly PipelineStage[] = [
     id: "uploaded",
     label: "UPLOADED",
     description: "Transferring the file and verifying it decodes.",
-    realWorldNote: "Seconds to a minute, depending on connection.",
-    expectedMs: 15_000,
+    realWorldNote: "Seconds to a minute, depending on connection and file size.",
+    // Browser to storage: measured ~0.75 MB/s here, so a compressed hour is ~40 s.
+    expectedMs: 5_000,
+    perMinuteMs: 700,
   },
   {
     id: "queued",
     label: "QUEUED",
     description: "Waiting for a transcription worker to pick the job up.",
-    realWorldNote: "Usually immediate; longer under load.",
-    expectedMs: 5_000,
+    realWorldNote: "A few seconds while the transcription service fetches the file.",
+    // Measured 5.7-7.8 s, flat: this is Gladia fetching the audio before it answers.
+    expectedMs: 7_000,
+    perMinuteMs: 0,
   },
   {
     id: "transcribing",
     label: "TRANSCRIBING",
     description: "Speech to text, with each speaker separated out.",
-    realWorldNote: "About 1 to 3 minutes for a 45 minute recording.",
-    expectedMs: 120_000,
+    realWorldNote: "Usually well under a minute, even for a long recording.",
+    // Measured 4.6-13.2 s and flat from 1:18 to 9:46 of audio. The per-minute
+    // term is a hedge for recordings longer than anything measured.
+    expectedMs: 8_000,
+    perMinuteMs: 500,
   },
   {
     id: "analyzing",
     label: "ANALYZING",
     description: "Pulling out topics, decisions, owners and quotes.",
     realWorldNote: "Under a minute once the transcript exists.",
-    expectedMs: 45_000,
+    // Measured 8-12 s at 1:18 and 15-20 s at 9:46. This is the one stage that
+    // grows with length: a longer transcript is more for the model to read.
+    expectedMs: 8_000,
+    perMinuteMs: 1_000,
   },
   {
     id: "ready",
@@ -62,13 +81,22 @@ export const PIPELINE_STAGES: readonly PipelineStage[] = [
     description: "Written to the archive and searchable.",
     realWorldNote: "",
     expectedMs: 0,
+    perMinuteMs: 0,
   },
 ] as const;
 
 /** Stages that actually run. `ready` is the finish line, not a step. */
 const RUNNING_STAGES = PIPELINE_STAGES.filter((s) => s.id !== "ready");
 
-const TOTAL_PIPELINE_MS = RUNNING_STAGES.reduce((sum, s) => sum + s.expectedMs, 0);
+/** A stage's estimate for this particular recording. */
+function estimateMs(stage: PipelineStage, meeting: Meeting): number {
+  const minutes = meeting.durationMs / 60_000;
+  return stage.expectedMs + stage.perMinuteMs * minutes;
+}
+
+function totalEstimateMs(meeting: Meeting): number {
+  return RUNNING_STAGES.reduce((sum, s) => sum + estimateMs(s, meeting), 0);
+}
 
 export function stageMeta(status: MeetingStatus): PipelineStage | undefined {
   return PIPELINE_STAGES.find((s) => s.id === status);
@@ -109,9 +137,11 @@ const STAGE_CEILING = 0.94;
 
 export function stageProgress(meeting: Meeting, now: number): number {
   const stage = stageMeta(meeting.status);
-  if (!stage || !meeting.stageStartedAt || stage.expectedMs === 0) return 0;
+  if (!stage || !meeting.stageStartedAt) return 0;
+  const expected = estimateMs(stage, meeting);
+  if (expected === 0) return 0;
   const elapsed = Math.max(0, now - meeting.stageStartedAt);
-  return STAGE_CEILING * (1 - Math.exp(-elapsed / stage.expectedMs));
+  return STAGE_CEILING * (1 - Math.exp(-elapsed / expected));
 }
 
 /**
@@ -126,11 +156,16 @@ export function overallProgress(meeting: Meeting, now: number): number {
   const index = RUNNING_STAGES.findIndex((s) => s.id === reference);
   if (index < 0) return 0;
 
-  const elapsedBefore = RUNNING_STAGES.slice(0, index).reduce((sum, s) => sum + s.expectedMs, 0);
+  const elapsedBefore = RUNNING_STAGES.slice(0, index).reduce(
+    (sum, s) => sum + estimateMs(s, meeting),
+    0
+  );
   const withinStage =
-    meeting.status === "failed" ? 0 : stageProgress(meeting, now) * RUNNING_STAGES[index].expectedMs;
+    meeting.status === "failed"
+      ? 0
+      : stageProgress(meeting, now) * estimateMs(RUNNING_STAGES[index], meeting);
 
-  return clamp01((elapsedBefore + withinStage) / TOTAL_PIPELINE_MS);
+  return clamp01((elapsedBefore + withinStage) / totalEstimateMs(meeting));
 }
 
 /**
@@ -142,14 +177,18 @@ export function overallProgress(meeting: Meeting, now: number): number {
  */
 export function remainingMs(meeting: Meeting, now: number): number {
   if (isTerminal(meeting.status)) return 0;
-  return Math.max(0, TOTAL_PIPELINE_MS * (1 - overallProgress(meeting, now)));
+  return Math.max(0, totalEstimateMs(meeting) * (1 - overallProgress(meeting, now)));
 }
 
-/** Whether the current stage has run past its estimate. Worth saying out loud. */
+/**
+ * Whether the current stage has run past twice its estimate. Worth saying out
+ * loud - the estimates are medians, so a single overrun is normal and twice is
+ * the point at which somebody starts wondering whether it is still working.
+ */
 export function isRunningLong(meeting: Meeting, now: number): boolean {
   const stage = stageMeta(meeting.status);
   if (!stage || !meeting.stageStartedAt || isTerminal(meeting.status)) return false;
-  return now - meeting.stageStartedAt > stage.expectedMs * 1.5;
+  return now - meeting.stageStartedAt > estimateMs(stage, meeting) * 2;
 }
 
 function clamp01(n: number): number {

@@ -38,7 +38,7 @@ interface GladiaResult {
   status: "queued" | "processing" | "done" | "error";
   error_code?: number;
   result?: {
-    metadata?: { audio_duration?: number };
+    metadata?: { audio_duration?: number; transcription_time?: number };
     transcription?: { utterances?: Utterance[]; full_transcript?: string };
   };
 }
@@ -173,7 +173,18 @@ Deno.serve(async (req) => {
         .eq("id", meeting.id);
     }
 
-    await admin.from("processing_jobs").update({ stage: "analyzing" }).eq("id", job.id);
+    // Gladia's own account of the time: how long the audio was, and how long
+    // it spent transcribing - which excludes its queue, so the gap between this
+    // and the wall-clock window is the queue.
+    await admin
+      .from("processing_jobs")
+      .update({
+        stage: "analyzing",
+        transcribing_finished_at: new Date().toISOString(),
+        audio_seconds: audioSeconds ?? null,
+        transcription_seconds: result.result?.metadata?.transcription_time ?? null,
+      })
+      .eq("id", job.id);
     await setStage(admin, meeting.id, "analyzing");
     triggerAnalysis(meeting.id);
 

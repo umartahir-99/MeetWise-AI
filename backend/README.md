@@ -62,7 +62,13 @@ node scripts/verify-m1.mjs                        # do settings and account name
 node scripts/verify-m2.mjs <email> <password>     # does the archive round-trip through the mapper?
 node scripts/verify-m3.mjs <email> <password>     # does an upload land, and does Realtime carry status?
 node scripts/verify-m4.mjs <email> <password> <audio>   # does a real recording become a real summary?
+node scripts/verify-reaper.mjs <email> <password>       # does a stuck job become retryable? (waits on cron, ~5 min)
+node scripts/bench-pipeline.mjs <email> <password> <audio> [label] [--dump]   # where does the time go?
 ```
+
+**Every run of `verify-m4` and `bench-pipeline` costs one Gemini request against a
+free-tier quota of about twenty a day, and a few Gladia minutes.** The other
+scripts cost nothing. Count before you benchmark.
 
 `verify-m4.mjs` needs a recording with speech in it. `scripts/make-test-recording.ps1`
 generates a 78-second two-voice meeting with the Windows speech synthesiser, so the

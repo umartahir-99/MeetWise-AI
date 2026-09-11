@@ -25,13 +25,24 @@ import { adminClient, env, json, markFailed } from "../_shared/common.ts";
 const MODEL_FOR: Record<string, string> = {
   "gemini-3-flash": "gemini-3.5-flash",
   "gemini-3-1-flash-lite": "gemini-3.1-flash-lite",
-  "gemini-3-1-pro": "gemini-3.1-pro-preview",
-  // Legacy. Google withdrew gemini-2.5-pro from new accounts (the API answers
-  // 404 and names 3.1 Pro as the replacement), so anyone who saved this id
-  // before the settings screen caught up lands on the model Google points to.
-  "gemini-2-5-pro": "gemini-3.1-pro-preview",
+  // Legacy ids from when the settings screen offered Pro. This project is
+  // free-tier by decision: Pro needs billing, so these land on Flash. Nothing
+  // in this table may name a model that costs money.
+  "gemini-3-1-pro": "gemini-3.5-flash",
+  "gemini-2-5-pro": "gemini-3.5-flash",
 };
 const DEFAULT_MODEL = "gemini-3.5-flash";
+
+/**
+ * How hard the model thinks before answering.
+ *
+ * Gemini 3.x defaults to "medium", and thinking tokens both add latency and
+ * count against a free-tier quota of twenty requests a day. This is structured
+ * extraction from a transcript the model is shown in full - the answers are on
+ * the page, not derived - so "low" is the setting to beat. It is recorded on
+ * every job so the choice can be revisited on numbers.
+ */
+const THINKING_LEVEL = "low";
 
 /** Beyond this the transcript is truncated with a note. Flash has room for far more; this is a cost guard. */
 const MAX_TRANSCRIPT_CHARS = 160_000;
@@ -187,11 +198,13 @@ Deno.serve(async (req) => {
               responseMimeType: "application/json",
               responseSchema: RESPONSE_SCHEMA,
               temperature: 0.2,
+              thinkingConfig: { thinkingLevel: THINKING_LEVEL },
             },
           }),
         }
       );
 
+    const analysisStartedAt = new Date().toISOString();
     let model = requested;
     let response = await generate(model);
 
@@ -213,8 +226,9 @@ Deno.serve(async (req) => {
 
     if (response.status === 429) {
       throw new Error(
-        "The analysis model's quota is used up for now. Wait a few minutes and retry, " +
-          "or check the Gemini API quota on your Google account."
+        "Today's analysis quota is used up (the Gemini free tier allows a small number of " +
+          "meetings a day). It resets at midnight Pacific time - retry then. The transcript " +
+          "is saved, so the retry will not transcribe again."
       );
     }
     if (!response.ok) {
@@ -226,8 +240,8 @@ Deno.serve(async (req) => {
     const text: string | undefined = payload?.candidates?.[0]?.content?.parts?.[0]?.text;
     if (!text) throw new Error("The analysis model returned nothing usable.");
 
-    const usage = payload?.usageMetadata;
-    if (usage) console.log("gemini tokens", meeting.id, model, usage.totalTokenCount);
+    const usage = payload?.usageMetadata ?? {};
+    console.log("gemini", meeting.id, model, THINKING_LEVEL, "total", usage.totalTokenCount, "thinking", usage.thoughtsTokenCount);
 
     let analysis: Analysis;
     try {
@@ -316,7 +330,18 @@ Deno.serve(async (req) => {
       .eq("id", meeting.id);
     if (doneError) throw new Error(`Could not finish the meeting: ${doneError.message}`);
 
-    await admin.from("processing_jobs").update({ stage: "ready" }).eq("meeting_id", meeting.id);
+    await admin
+      .from("processing_jobs")
+      .update({
+        stage: "ready",
+        analysis_model: model,
+        analysis_thinking: THINKING_LEVEL,
+        analysis_started_at: analysisStartedAt,
+        analysis_finished_at: new Date().toISOString(),
+        analysis_total_tokens: usage.totalTokenCount ?? null,
+        analysis_thinking_tokens: usage.thoughtsTokenCount ?? null,
+      })
+      .eq("meeting_id", meeting.id);
 
     return json(200, {
       ok: true,

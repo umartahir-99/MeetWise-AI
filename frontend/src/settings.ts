@@ -46,22 +46,24 @@ export const TRANSCRIPTION_MODELS: ModelOption[] = [
   },
 ];
 
-/** The pass that turns a transcript into topics, decisions, owners and quotes. */
+/**
+ * The pass that turns a transcript into topics, decisions, owners and quotes.
+ *
+ * Free tier only, by decision. Google's Pro models need billing and are not
+ * offered; the mapping from these ids to vendor model names lives in
+ * `analyze-meeting`, so adding another free model later is one entry there
+ * and one here.
+ */
 export const ANALYSIS_MODELS: ModelOption[] = [
   {
     id: "gemini-3-flash",
-    name: "GEMINI 3 FLASH",
-    note: "Balanced, with a generous free tier. The sensible default.",
+    name: "GEMINI 3.5 FLASH",
+    note: "Balanced. Free tier — 20 analyses a day on a free key. The default.",
   },
   {
     id: "gemini-3-1-flash-lite",
     name: "GEMINI 3.1 FLASH-LITE",
     note: "Fastest and cheapest. Suited to short stand-ups rather than long reviews.",
-  },
-  {
-    id: "gemini-3-1-pro",
-    name: "GEMINI 3.1 PRO",
-    note: "Deepest reading. Paid — Google withdrew the 2.5 Pro line from new accounts.",
   },
 ];
 

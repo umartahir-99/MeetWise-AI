@@ -137,6 +137,17 @@ export interface ProcessingJobRow {
   last_error: string | null;
   created_at: string;
   updated_at: string;
+  /** Where the time went. Written by the functions as each stage runs. */
+  audio_seconds: number | null;
+  transcription_seconds: number | null;
+  transcribing_started_at: string | null;
+  transcribing_finished_at: string | null;
+  analysis_model: string | null;
+  analysis_thinking: string | null;
+  analysis_started_at: string | null;
+  analysis_finished_at: string | null;
+  analysis_total_tokens: number | null;
+  analysis_thinking_tokens: number | null;
 }
 
 /** A meeting with every child table pulled in by the nested select. */

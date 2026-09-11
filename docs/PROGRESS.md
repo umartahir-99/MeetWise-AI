@@ -253,54 +253,79 @@ a Bash permission rule in `.claude/settings.json`:
 
 ## Pick up here
 
-Umar confirmed the pipeline on his own recording on 2026-09-11: a 5:44
-meeting transcribed, analysed and came back with a real summary, in 2:30.
+**M4 review and optimisation pass, 2026-09-11.** Umar asked for measurement
+before change. Five timed runs through the deployed pipeline (`backend/scripts/
+bench-pipeline.mjs`) overturned the earlier extrapolation:
 
-**Measured throughput is ~0.4× the recording length**, almost all of it
-Gladia. That extrapolates to roughly 17–20 minutes for a 45-minute meeting and
-23–27 for an hour — far slower than the TRD's "1 to 3 minutes for 45", which was
-optimistic. Plan around the measured number.
+| Audio | start | transcribing | analyzing | total |
+|---|---|---|---|---|
+| 1:18 (×3) | 5.7–7.8s | 4.6–13.2s | 8.1–12.2s | 21–33s |
+| 9:46 (×2) | 7.2–7.6s | **6.6–7.6s** | 15–20s | 29–36s |
 
-### First, a small fix
+**The pipeline takes 21–36 s regardless of recording length.** Gladia
+transcribes at ~80× real time; its wall time is queue plus overhead, not audio.
+Umar's 2:30 for a 21 MB / 5:44 WAV is **not explained** by these numbers — the
+instrumentation below is what will explain it on his next real upload.
 
-`processing.ts` gives the transcribing stage a flat `expectedMs` of 120 s, so
-anything over ~3 minutes will show "TAKING LONGER THAN USUAL" while nothing is
-wrong. The estimate must scale with the recording's length, which the meeting
-row already carries in `duration_ms` / `source_duration_sec`. Make
-`expectedMs` for transcribing ≈ 0.35 × duration, keep a floor for short files.
+### What changed (all approved, all verified)
 
-### Then, the browser checks not yet done
+1. **Gemini thinking level → `low`.** Analysis 8–12 s → **4.4 s**, zero thinking
+   tokens. Decisions, action items and their owners identical to `medium` across
+   the comparison; quotes came back **2 instead of 3** on both `low` runs (n=2)
+   against 3 on every `medium` run (n=5). Within the "2–5" the prompt asks for,
+   but a real, small effect on quote recall. One constant to flip back:
+   `THINKING_LEVEL` in `analyze-meeting`. Every job records which level ran.
+2. **Free tier only.** Pro removed from the settings screen; the legacy Pro ids
+   in `MODEL_FOR` now land on Flash. No model that costs money can be called.
+   The 429 message names the reset (midnight Pacific).
+3. **Stuck-job sweep.** `reap_stuck_meetings()` runs every five minutes via
+   `pg_cron` and turns a stage that has run far past anything measured into a
+   `failed` with a readable reason, so the retry button appears. Windows:
+   uploaded 2 h, queued 5 min, transcribing 20 min, analyzing 5 min.
+   `verify-reaper.mjs` plants a stuck row and waits for the sweep.
+4. **Progress estimates from measurement.** Each stage carries a fixed part and
+   a per-minute part; "taking longer than usual" fires at 2× the estimate.
+5. **Every job records its own timing** — Gladia's `transcription_time` and
+   audio length, Gemini's model, thinking level, wall time and token counts —
+   on `processing_jobs`. The next performance question is a query.
 
-The scripts prove the data; these prove the screens. None has been exercised in
-a browser yet:
+### Free-tier reality, verified
+
+- **Gemini 3.5 Flash on Umar's key: RPM 5, RPD 20.** Twenty meetings a day is
+  the tightest limit in the stack. Nine of today's twenty were spent on
+  benchmarks before the quota was known; that will not be repeated.
+- **Gladia: 10 hours/month**, refreshing. About 35 minutes used across all
+  testing.
+- **Supabase free: 150 s function wall-clock** (analysis peaks ~20 s), and
+  **5 GB egress/month** — each recording is downloaded once by Gladia, so
+  ~100 max-size uploads a month before egress, not storage, is the ceiling.
+
+### Long meetings
+
+An hour fits under 50 MiB only as compressed audio at ≤ ~96 kbps (M4A/MP3 at
+64 kbps ≈ 29 MB). WAV and video do not fit at any length that matters. The
+transcript for an hour is ~55 KB / ~700 lines — under every guard. The 25-minute
+near-cap test was **not run** (Umar's call, to save Gladia minutes).
+
+### Still to do, in order
+
+1. The seven browser checks (unchanged — see the list below). HEAR IT on a
+   real quote is the one that has never run in a browser.
+2. Watch `processing_jobs` on Umar's next real upload: it will say where the
+   2:30 went, and whether `low` keeps producing fewer quotes on real meetings.
+3. Step 7 (M5): retention sweep on the same `pg_cron`, signed-URL refresh,
+   discard-audio verification.
+
+### The seven browser checks
 
 1. Open the processed meeting, press HEAR IT on a quote — does the real audio
-   play from the right second? (This is the signed-URL path's first run in a
-   browser.)
+   play from the right second?
 2. Click a transcript line — does the audio jump there?
 3. Name both voices — do transcript, quotes and action items all update?
 4. Ask a question about the meeting, click a citation — does it open and play?
 5. Tick an action item, refresh — still ticked?
 6. Export as Markdown — is the real meeting there, with the names given?
 7. Sign out, sign in — everything still there?
-
-Also glance at the Gladia dashboard (480 free min/month; 5:44 cost ~6) and
-Google AI Studio (Gemini quota) so neither runs dry unnoticed.
-
-### Then Step 7 (M5)
-
-Nightly retention sweep via `pg_cron`, deleting rows past each user's window
-**and their stored files**. Signed-URL refresh before the hour expires, for
-long listening sessions. `discard_audio_after_processing` is already honoured
-in `analyze-meeting`; verify the player falls back to narration by itself
-afterwards. Add the `updated_at` trigger check.
-
-### The 50 MiB ceiling is a hard constraint at this length
-
-A 45–60 minute meeting fits only as **compressed audio** — M4A or MP3 at speech
-quality is ~20–30 MB for an hour. The same hour as WAV is ~500 MB, as video far
-more; both are refused at the upload screen. The "export audio-only" nudge is
-a requirement, not advice. Raising the cap is a paid Supabase tier.
 
 ---
 

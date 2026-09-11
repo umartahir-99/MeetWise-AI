@@ -136,6 +136,7 @@ Deno.serve(async (req) => {
       provider_job_id: transcriptionId,
       stage: "transcribing",
       attempts: 1,
+      transcribing_started_at: new Date().toISOString(),
     });
     if (jobError) throw new Error(`Could not record the job: ${jobError.message}`);
 

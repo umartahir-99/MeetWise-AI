@@ -34,7 +34,9 @@ the project up.
 | [docs/PRD.md](docs/PRD.md) | What the product does, feature by feature — including an honest ledger of what is still simulated |
 | [docs/TRD.md](docs/TRD.md) | The technical design: schema, RLS, storage, edge functions, and the risks |
 | [docs/SUPABASE_BACKEND_PLAN.md](docs/SUPABASE_BACKEND_PLAN.md) | The order to build the backend in, milestone by milestone |
-| [docs/PROGRESS.md](docs/PROGRESS.md) | **Where the build actually is.** Read this first when picking the work back up |
+| [docs/DECISIONS.md](docs/DECISIONS.md) | Every decision that shaped the build — what, why, and what it commits us to |
+| [docs/STATUS.md](docs/STATUS.md) | **Where the build is.** Read this first when picking the work back up |
+| [DESIGN.md](DESIGN.md) | The visual system: tokens, type, and the rules the interface is built on |
 
 ## Running it
 
@@ -55,6 +57,10 @@ node scripts/isolation-test.mjs    # can one user read another's meetings?
 
 ## Status
 
-The frontend is complete and runs against real data for auth and settings. The archive itself is
-still fixture data — moving it to the database is the next milestone. `docs/PROGRESS.md` is kept
-current and says precisely what is proven and what is not.
+**The product is real and runs entirely on free tiers.** Sign up, upload a recording, and get a
+transcript with speakers separated, a summary about that meeting, action items with owners, and
+quotes that play from the second they were said. Everything persists.
+
+Measured: a recording of any length processes in 21–36 seconds. The tightest limit is Gemini's
+free tier at 20 analyses a day. `docs/STATUS.md` says precisely what is proven, what is deferred,
+and why.

@@ -118,5 +118,5 @@ must check ownership themselves before touching anything.
 
 ## Where the build is
 
-See [../docs/PROGRESS.md](../docs/PROGRESS.md) — it is kept current and distinguishes what has been
-proven from what has merely been written.
+See [../docs/STATUS.md](../docs/STATUS.md) for where the build is, and
+[../docs/DECISIONS.md](../docs/DECISIONS.md) for why it is built the way it is.

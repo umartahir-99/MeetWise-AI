@@ -165,17 +165,17 @@ Shared animation variants live in `src/motion.ts` (`fadeUp`, `staggerContainer`,
 
 ## Design system
 
-`design.md` is the authoritative style reference ("ORYZO AI" darkroom-editorial system) — read its Do's and Don'ts before making visual changes. The load-bearing rules:
+`DESIGN.md` is the authoritative style reference ("ORYZO AI" darkroom-editorial system) — read its Do's and Don'ts before making visual changes. The load-bearing rules:
 
 - Never pure `#fff` text or `#000` backgrounds; warm cream `#ffedd7` on walnut shadow `#100904`.
 - Ember `#dc5000` is an *editorial accent only* — labels, tags, credit lines. Note the codebase deviates from this on the hero/nav CTA buttons, which are ember-filled.
-- Uppercase, weight 500 for essentially all UI text; mixed-case weight 400 is reserved for body copy. **This applies to chrome only** — see the casing rule below, a deliberate deviation from `design.md`, which describes a marketing site with no user-generated content and so says never to sentence-case a heading.
+- Uppercase, weight 500 for essentially all UI text; mixed-case weight 400 is reserved for body copy. **This applies to chrome only** — see the casing rule below, a deliberate deviation from `DESIGN.md`, which describes a marketing site with no user-generated content and so says never to sentence-case a heading.
 - No drop shadows — depth is the two-step surface stack `#100904 → #382416`.
 - Radius vocabulary is only 12px (cards), 22.5px (ghost buttons), 36px (pill CTAs), 0px (inputs/links), 9999px (full).
 
 ### Casing: chrome vs user content
 
-`design.md` sets everything in caps, which is right for a site whose every word is written by the designer. This product has user-generated content, and uppercase fights it: real titles arrive as `q3 planning sync`, not `Q3 PLANNING SYNC`.
+`DESIGN.md` sets everything in caps, which is right for a site whose every word is written by the designer. This product has user-generated content, and uppercase fights it: real titles arrive as `q3 planning sync`, not `Q3 PLANNING SYNC`.
 
 **Never bake casing into the data.** Meeting titles, topic headings, tags, and people's names are stored exactly as typed (`title: "Oryzo kick-off: design stack & manufacturing"`, `name: "Sarah Chen"`, `tags: ["Design"]`). Casing is a display decision:
 
@@ -184,6 +184,6 @@ Shared animation variants live in `src/motion.ts` (`fadeUp`, `staggerContainer`,
 - **User content shown as itself** — meeting titles, topic headings, summaries, quotes, transcript text: left alone. Titles carry `.user-title`, which capitalises only the first letter via `::first-letter`, so `q3 planning sync` reads as `Q3 planning sync` while `iOS` and `WebAudio` survive.
 - **Anything the user is typing** — the archive search box, the title field, the voice-name field: never transformed. Uppercasing someone's input as they type it is the worst version of this bug.
 
-The typeface in `design.md` (halyard-display-variable) is substituted here with **Satoshi**, loaded from Fontshare in `src/index.css` and preconnected in `index.html`.
+The typeface in `DESIGN.md` (halyard-display-variable) is substituted here with **Satoshi**, loaded from Fontshare in `src/index.css` and preconnected in `index.html`.
 
 `.agents/skills/design-taste-frontend/SKILL.md` is a vendored anti-generic-design skill (pinned in `skills-lock.json`) covering frontend design direction — consult it for larger visual/layout work. -->

@@ -2,7 +2,7 @@
 
 **Version:** 1.0
 **Date:** 2026-09-08
-**Status:** Frontend complete. Backend not started.
+**Status:** Written before the backend existed. For what is built and verified today, see [STATUS.md](./STATUS.md).
 
 ---
 
@@ -444,6 +444,8 @@ goal described in the project brief, and it is a separate project from this back
 ---
 
 ## 6. The honesty ledger — what is fake today
+
+*A snapshot from before the backend was built, kept as the record of what had to change. Nearly every "Fake" below is now real; [STATUS.md](./STATUS.md) has the current list of what is not.*
 
 This table exists so nothing gets shipped as real by accident.
 

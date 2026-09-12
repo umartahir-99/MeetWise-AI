@@ -25,7 +25,13 @@ import type { User as AuthUser } from "@supabase/supabase-js";
 import { SUPABASE_CONFIGURED, supabase } from "./lib/supabase";
 import { useSession } from "./useSession";
 import { Auth, SupabaseNotConfigured } from "./components/Auth";
-import { loadProfile, loadSettings, renameAccount, saveSettings } from "./api/settings";
+import {
+  PLACEHOLDER_NAME,
+  loadProfile,
+  loadSettings,
+  renameAccount,
+  saveSettings,
+} from "./api/settings";
 import { useArchive } from "./useArchive";
 import {
   attachRecording,
@@ -99,7 +105,7 @@ function AppShell({ user }: { user: AuthUser }) {
   // the Owed list means the person whose voice resolves to this account, and
   // the name comes from `profiles`.
   const account = useMemo(
-    () => ({ id: user.id, name: profileName ?? "You" }),
+    () => ({ id: user.id, name: profileName ?? PLACEHOLDER_NAME }),
     [user.id, profileName]
   );
   // The account is folded into the directory, because the person who owns a
@@ -586,7 +592,15 @@ function AppShell({ user }: { user: AuthUser }) {
       onItemClick={(item) => handleNavigate(item.href.slice(1))}
       action={{ label: "Upload Recording", onClick: handleStartUpload }}
       account={{
-        name: account.name,
+        // The seeded "You" is a placeholder, not a name; the nav is the one
+        // place it reads wrong. It yields to whatever the person gave at
+        // sign-up (their own auth metadata), and failing that to the email
+        // handle, until the profile itself is named. Nothing here is fixed:
+        // a different sign-in remounts the shell and reads that user's rows.
+        name:
+          profileName === PLACEHOLDER_NAME
+            ? String(user.user_metadata?.display_name ?? "")
+            : profileName ?? "",
         email: user.email ?? "",
         onSignOut: handleSignOut,
       }}

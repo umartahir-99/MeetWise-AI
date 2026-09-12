@@ -40,6 +40,9 @@ export async function saveSettings(
   if (error) throw error;
 }
 
+/** What `profiles.display_name` holds until someone is actually named. */
+export const PLACEHOLDER_NAME = "You";
+
 export async function loadProfile(userId: string): Promise<User> {
   const { data, error } = await supabase
     .from("profiles")
@@ -48,7 +51,7 @@ export async function loadProfile(userId: string): Promise<User> {
     .maybeSingle<ProfileRow>();
 
   if (error) throw error;
-  return data ? toUser(data) : { id: userId, name: "You" };
+  return data ? toUser(data) : { id: userId, name: PLACEHOLDER_NAME };
 }
 
 /**

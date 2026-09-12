@@ -15,6 +15,7 @@ type Mode = "signin" | "signup";
  */
 export const Auth: React.FC = () => {
   const [mode, setMode] = useState<Mode>("signin");
+  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -31,7 +32,14 @@ export const Auth: React.FC = () => {
 
     try {
       if (mode === "signup") {
-        const { data, error: failure } = await supabase.auth.signUp({ email, password });
+        // The name rides along as user metadata; `handle_new_user` copies it
+        // into `profiles.display_name`, which is what the nav and every byline
+        // read. Without it the account would be called "You" until renamed.
+        const { data, error: failure } = await supabase.auth.signUp({
+          email,
+          password,
+          options: { data: { display_name: name.trim() } },
+        });
         if (failure) throw failure;
         // A project with email confirmation switched on returns a user but no
         // session. Saying so is the difference between "nothing happened" and
@@ -81,6 +89,27 @@ export const Auth: React.FC = () => {
           <div className="divider-dashed" />
 
           <form onSubmit={submit} className="flex flex-col gap-8">
+            {mode === "signup" && (
+              <div className="flex flex-col gap-3">
+                <label
+                  htmlFor="auth-name"
+                  className="text-[10px] font-medium tracking-[0.2em] text-driftwood uppercase"
+                >
+                  YOUR NAME
+                </label>
+                <input
+                  id="auth-name"
+                  type="text"
+                  required
+                  autoComplete="name"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="How you appear in your meetings"
+                  className="upload-input"
+                />
+              </div>
+            )}
+
             <div className="flex flex-col gap-3">
               <label
                 htmlFor="auth-email"
@@ -135,7 +164,7 @@ export const Auth: React.FC = () => {
 
             <motion.button
               type="submit"
-              disabled={busy || !email || !password}
+              disabled={busy || !email || !password || (mode === "signup" && !name.trim())}
               className="hero__cta !mt-0 disabled:opacity-35 disabled:cursor-not-allowed"
               whileHover={busy ? undefined : { scale: 1.04 }}
               whileTap={busy ? undefined : { scale: 0.97 }}

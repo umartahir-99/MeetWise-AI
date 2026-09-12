@@ -1,16 +1,8 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import type { Meeting } from "../mockData";
 import { MagnifyingGlass, Funnel, X } from "@phosphor-icons/react";
 import { motion } from "motion/react";
-import {
-  cardHover,
-  cardTap,
-  fadeInFrom,
-  fadeUp,
-  markerPop,
-  staggerContainer,
-  viewportOnce,
-} from "../motion";
+import { fadeUp, staggerContainer, viewportOnce } from "../motion";
 import { isReadable, pendingGist } from "../processing";
 import { byNewestFirst, formatMeetingDate } from "../datetime";
 import type { SpeakerResolver } from "../speakers";
@@ -21,6 +13,11 @@ interface ArchiveProps {
   onSelectMeeting: (id: string) => void;
   speakers: SpeakerResolver;
 }
+
+/** Rows shown before "show more" — one screen, whatever the archive holds. */
+const PAGE_SIZE = 10;
+/** Tags shown inline on a row; the rest fold into a "+n" so the row stays one line. */
+const MAX_ROW_TAGS = 2;
 
 export const Archive: React.FC<ArchiveProps> = ({ meetings, onSelectMeeting, speakers }) => {
   const [searchTerm, setSearchTerm] = useState("");
@@ -70,6 +67,13 @@ export const Archive: React.FC<ArchiveProps> = ({ meetings, onSelectMeeting, spe
 
     return matching.sort(byNewestFirst);
   }, [meetings, searchTerm, selectedTag, selectedParticipant, speakers]);
+
+  // The ledger is paged so the archive never becomes a scroll of its own: a
+  // filter change starts again from the first page.
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+  useEffect(() => setVisibleCount(PAGE_SIZE), [searchTerm, selectedTag, selectedParticipant]);
+  const visibleMeetings = filteredMeetings.slice(0, visibleCount);
+  const hiddenCount = filteredMeetings.length - visibleMeetings.length;
 
   const handleResetFilters = () => {
     setSearchTerm("");
@@ -190,7 +194,7 @@ export const Archive: React.FC<ArchiveProps> = ({ meetings, onSelectMeeting, spe
       {/* Dashed Line */}
       <div className="divider-dashed-wheat" />
 
-      {/* Meeting Archive Entries */}
+      {/* Meeting ledger */}
       <section className="flex flex-col gap-8">
         {filteredMeetings.length === 0 ? (
           <div className="border border-wheat-border border-dashed rounded-[12px] p-12 text-center text-ink-muted flex flex-col gap-3 items-center">
@@ -201,76 +205,73 @@ export const Archive: React.FC<ArchiveProps> = ({ meetings, onSelectMeeting, spe
           </div>
         ) : (
           <motion.div
-            className="timeline"
+            className="ledger"
             variants={staggerContainer}
             initial="hidden"
             whileInView="visible"
             viewport={viewportOnce}
           >
-            {filteredMeetings.map((meeting, index) => (
-              <div
-                key={meeting.id}
-                className={`timeline-row ${
-                  index % 2 === 0 ? "timeline-row--right" : "timeline-row--left"
-                }`}
-              >
-                <motion.span
-                  className="timeline-marker"
-                  aria-hidden="true"
-                  variants={markerPop}
-                >
-                  {index + 1}
-                </motion.span>
+            <div className="ledger__head" aria-hidden="true">
+              <span>Date</span>
+              <span>Meeting</span>
+              <span>Members</span>
+              <span>Tags</span>
+            </div>
 
-                <motion.div
+            {visibleMeetings.map((meeting) => {
+              const readable = isReadable(meeting);
+              const overflow = meeting.tags.length - MAX_ROW_TAGS;
+              return (
+                <motion.button
+                  key={meeting.id}
+                  type="button"
+                  className="ledger__row"
                   onClick={() => onSelectMeeting(meeting.id)}
-                  variants={fadeInFrom(index % 2 === 0 ? "right" : "left")}
-                  whileHover={cardHover}
-                  whileTap={cardTap}
-                  className="timeline-card group border border-wheat-border rounded-[12px] p-6 md:p-8 bg-wheat-surface hover:bg-wheat-deep hover:border-olive transition-colors cursor-pointer flex flex-col gap-6"
+                  variants={fadeUp}
                 >
-                  {/* Meta details */}
-                  <div className="flex flex-wrap items-center justify-between gap-4">
-                    <span className="text-[12px] font-medium tracking-[0.15em] text-ink-muted">
-                      {formatMeetingDate(meeting.startedAt)}
-                    </span>
+                  <span className="ledger__date">{formatMeetingDate(meeting.startedAt)}</span>
 
-                    <div className="flex items-center gap-2">
-                      {isReadable(meeting) ? (
-                        meeting.tags.map((tag) => (
-                          <span
-                            key={tag}
-                            className="text-[9px] font-medium tracking-[0.1em] text-ember-deep border border-ember-deep/30 px-2 py-0.5 rounded-[4px] uppercase"
-                          >
+                  <span className="ledger__meeting min-w-0">
+                    <span className="ledger__title user-title block">{meeting.title}</span>
+                    <span className="ledger__gist block">
+                      {readable ? meeting.gist : pendingGist(meeting.status)}
+                    </span>
+                  </span>
+
+                  {/* Members only exist once diarization has run. */}
+                  <span className="ledger__members">
+                    {readable ? speakers.participants(meeting).join(" · ") : "—"}
+                  </span>
+
+                  <span className="ledger__tags">
+                    {readable ? (
+                      <>
+                        {meeting.tags.slice(0, MAX_ROW_TAGS).map((tag) => (
+                          <span key={tag} className="ledger__tag">
                             {tag}
                           </span>
-                        ))
-                      ) : (
-                        <StatusPill status={meeting.status} tone="cream" />
-                      )}
-                    </div>
-                  </div>
+                        ))}
+                        {overflow > 0 && (
+                          <span className="ledger__tag ledger__tag--more">+{overflow}</span>
+                        )}
+                      </>
+                    ) : (
+                      <StatusPill status={meeting.status} tone="cream" />
+                    )}
+                  </span>
+                </motion.button>
+              );
+            })}
 
-                  {/* Title */}
-                  <h3 className="text-heading-sm-custom md:text-[24px] text-ink transition-colors user-title">
-                    {meeting.title}
-                  </h3>
-
-                  {/* AI gist - 29px mixed case */}
-                  <p className="text-[15px] md:text-[16px] text-ink leading-[1.6] font-normal font-sans">
-                    {isReadable(meeting) ? meeting.gist : pendingGist(meeting.status)}
-                  </p>
-
-                  {/* Participants List - only exists once diarization has run */}
-                  {isReadable(meeting) && (
-                    <div className="flex items-center gap-2 text-[10px] font-medium tracking-[0.15em] text-ink-muted uppercase">
-                      <span>MEMBERS:</span>
-                      <span>{speakers.participants(meeting).join(" · ")}</span>
-                    </div>
-                  )}
-                </motion.div>
-              </div>
-            ))}
+            {hiddenCount > 0 && (
+              <button
+                type="button"
+                className="ledger__more"
+                onClick={() => setVisibleCount((n) => n + PAGE_SIZE)}
+              >
+                Show {Math.min(hiddenCount, PAGE_SIZE)} more · {hiddenCount} remaining
+              </button>
+            )}
           </motion.div>
         )}
       </section>

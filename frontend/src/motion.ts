@@ -31,26 +31,6 @@ export const fadeUp: Variants = {
   },
 };
 
-/** Timeline entries arrive from whichever side of the centre line they sit on. */
-export const fadeInFrom = (direction: "left" | "right"): Variants => ({
-  hidden: { opacity: 0, x: direction === "left" ? -36 : 36 },
-  visible: {
-    opacity: 1,
-    x: 0,
-    transition: { type: "spring", stiffness: 260, damping: 28 },
-  },
-});
-
-/** Marker dots pop in on the line. */
-export const markerPop: Variants = {
-  hidden: { opacity: 0, scale: 0.4 },
-  visible: {
-    opacity: 1,
-    scale: 1,
-    transition: { type: "spring", stiffness: 400, damping: 18 },
-  },
-};
-
 /** Lift used by every clickable card. */
 export const cardHover = {
   y: -4,

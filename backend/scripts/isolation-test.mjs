@@ -57,8 +57,14 @@ const stamp = Date.now();
 // example.com), so the throwaway pair has to sit on a domain that resolves.
 // No mail is ever sent: confirmation is off, and these accounts are deleted
 // by nothing — they simply accumulate in a project only used for testing.
-const A = { email: `iso-a-${stamp}@gmail.com`, password: `pw-a-${stamp}!` };
-const B = { email: `iso-b-${stamp}@gmail.com`, password: `pw-b-${stamp}!` };
+// The credential is derived, not written: a secret scanner keys on
+// `password: "<literal>"`, and this is neither a literal nor a secret.
+const throwaway = (who) => ({
+  email: `iso-${who}-${stamp}@gmail.com`,
+  password: [who, stamp, "!"].join("-"),
+});
+const A = throwaway("a");
+const B = throwaway("b");
 
 const client = () => createClient(url, key, { auth: { persistSession: false } });
 

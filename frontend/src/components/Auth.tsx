@@ -5,6 +5,9 @@ import { supabase } from "../lib/supabase";
 
 type Mode = "signin" | "signup";
 
+/** Mirrors the project's auth setting; the form and Supabase must agree. */
+const MIN_PASSWORD_LENGTH = 8;
+
 /**
  * The front door.
  *
@@ -140,11 +143,11 @@ export const Auth: React.FC = () => {
                 id="auth-password"
                 type="password"
                 required
-                minLength={6}
+                minLength={MIN_PASSWORD_LENGTH}
                 autoComplete={mode === "signin" ? "current-password" : "new-password"}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder={mode === "signup" ? "At least 6 characters" : "••••••••"}
+                placeholder={mode === "signup" ? `At least ${MIN_PASSWORD_LENGTH} characters` : "••••••••"}
                 className="upload-input"
               />
             </div>

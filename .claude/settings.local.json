@@ -1,5 +1,13 @@
 {
-  "description": "Impeccable design detector: immediate-tier checks after Edit/Write on UI files, full-rule deep pass on Stop.",
+  "permissions": {
+    "allow": [
+      "PowerShell(npx tsc -b; if \\($?\\) { \"TSC OK\" }; npx oxlint src/components/LiveCapture.tsx src/useLiveRecorder.ts src/App.tsx)",
+      "PowerShell(npx tsc -b; if \\($?\\) { \"TSC OK\" }; npx oxlint src/components/LiveCapture.tsx src/useLiveRecorder.ts src/App.tsx; npx vite build 2>&1 | Select-Object -Last 4)",
+      "PowerShell(npx tsc -b; if \\($?\\) { \"TSC OK\" }; npx oxlint src/App.tsx src/components/Processing.tsx src/components/LiveCapture.tsx src/useLiveRecorder.ts)",
+      "PowerShell(npx tsc -b; if \\($?\\) { \"TSC OK\" }; npx oxlint src/mockData.ts src/components/LiveCapture.tsx src/useLiveRecorder.ts)",
+      "PowerShell(npx tsc -b; if \\($?\\) { \"TSC OK\" }; npx oxlint src/components/Upload.tsx)"
+    ]
+  },
   "hooks": {
     "PostToolUse": [
       {
@@ -26,5 +34,6 @@
         ]
       }
     ]
-  }
+  },
+  "description": "Impeccable design detector: immediate-tier checks after Edit/Write on UI files, full-rule deep pass on Stop."
 }

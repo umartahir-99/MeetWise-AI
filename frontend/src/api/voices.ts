@@ -1,5 +1,5 @@
-import { supabase } from "../lib/supabase";
-import type { User, VoiceDirectory } from "../mockData";
+import { supabase } from "@/lib/supabase";
+import type { User, VoiceDirectory } from "@/data/mockData";
 import { toPeople, toVoiceDirectory } from "./mappers";
 import type { PersonRow, VoiceRow } from "./rows";
 

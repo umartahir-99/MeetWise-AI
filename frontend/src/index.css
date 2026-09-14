@@ -274,25 +274,26 @@
   }
 
   /* The mark rides in a circle of the colour that fills the pills. */
+  /* The mark is a full illustration in the brand palette, so it sits straight
+     on the ground - a filled disc behind it would muddy the tan tones. */
   .pill-nav__logo {
     display: grid;
     place-items: center;
     width: 34px;
     height: 34px;
     flex-shrink: 0;
-    border-radius: 50%;
-    background-color: var(--pn-base);
     transition: transform 0.5s var(--pn-ease);
   }
 
   .pill-nav__logo img {
     display: block;
-    width: 20px;
-    height: 20px;
+    width: 32px;
+    height: 32px;
+    object-fit: contain;
   }
 
   .pill-nav__brand:hover .pill-nav__logo {
-    transform: rotate(360deg);
+    transform: scale(1.08);
   }
 
   .pill-nav__list {

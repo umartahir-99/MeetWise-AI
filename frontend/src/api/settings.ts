@@ -1,7 +1,7 @@
-import { supabase } from "../lib/supabase";
-import type { User } from "../mockData";
-import type { AppSettings } from "../settings";
-import { DEFAULT_SETTINGS } from "../settings";
+import { supabase } from "@/lib/supabase";
+import type { User } from "@/data/mockData";
+import type { AppSettings } from "@/domain/settings";
+import { DEFAULT_SETTINGS } from "@/domain/settings";
 import { fromSettings, toSettings, toUser } from "./mappers";
 import type { ProfileRow, UserSettingsRow } from "./rows";
 

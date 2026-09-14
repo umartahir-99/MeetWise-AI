@@ -39,8 +39,11 @@ spends one says so in its header.
 
 Retrieval is keyword matching, so the screen says `KEYWORD RETRIEVAL`, never
 "AI". A progress bar cannot claim a stage is done before the database says so.
-Live Capture is labelled a demo. Copy that called the product a prototype was
-removed only when the thing it described stopped being one.
+Live Capture shows a level meter and a byte count - the two things it can
+vouch for - and says in so many words that nothing is analysed live; it was a
+scripted demo until 2026-09-15, and was labelled one for as long as it was.
+Copy that called the product a prototype was removed only when the thing it
+described stopped being one.
 
 ---
 

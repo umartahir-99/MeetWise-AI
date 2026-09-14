@@ -1,4 +1,4 @@
-import type { MeetingStatus } from "../mockData";
+import type { MeetingStatus } from "@/data/mockData";
 
 /**
  * The database, as the browser sees it.

@@ -18,15 +18,21 @@ linked Supabase project.
 ```
 src/
 ├── App.tsx           state for the whole app, and the session gate
-├── components/       every screen and every piece of one
+├── components/
+│   ├── sections/     the five landing-page sections (Home, Commitments, Archive, Ask, Settings)
+│   ├── views/        full-screen views that replace the landing page (Auth, Upload, Processing, LiveCapture, MeetingDetail)
+│   └── ui/           reusable pieces (PillNav, StatusPill, AudioPlayer, SpeakerPanel, StrokeText, Logo)
+├── hooks/            useArchive, useSession, useMeetingAudio, useLiveRecorder, useSmoothScroll
+├── domain/           pure logic: retrieval, commitments, speakers, processing, settings, export, datetime
+├── data/mockData.ts  the Meeting model and the seeded fixtures
 ├── api/              the database, and the mappers that keep it out of the components
-├── lib/supabase.ts   the one client
-└── *.ts              pure logic: retrieval, commitments, speakers, processing, export
+└── lib/              the Supabase client, plus the shared motion and easing vocabulary
 ```
 
-The `.ts` files at the top level are deliberately React-free and side-effect-free —
+Everything in `domain/` is deliberately React-free and side-effect-free —
 `retrieval.ts`, `commitments.ts`, `speakers.ts`, `processing.ts`, `exportArchive.ts`,
-`datetime.ts`. That is roughly where the product's real thinking lives, and keeping it out of
+`datetime.ts`. Cross-folder imports use the `@/` alias (`@/domain/speakers`), declared in
+`tsconfig.app.json` and `vite.config.ts`. That is roughly where the product's real thinking lives, and keeping it out of
 components is what makes it testable and what let the backend migration happen without touching
 the screens.
 

@@ -1,6 +1,6 @@
 # MeetWise AI — Status
 
-**As of:** 2026-09-12 · **Branch:** `backend/supabase-migration` · **State:** the product is real and runs entirely on free tiers.
+**As of:** 2026-09-15 · **Branch:** `main` · **State:** the product is real and runs entirely on free tiers.
 
 Read this first when picking the work back up. The reasoning behind everything
 here is in [DECISIONS.md](./DECISIONS.md).
@@ -30,6 +30,7 @@ everything is there.
 | — | Review — measured every stage; halved analysis time; strict free tier; stuck-job recovery | Done |
 | 7 | M5 — nightly retention sweep (rows *and* files); signed-URL refresh; discard-audio | Done |
 | 8 | M6 — cross-meeting voice identity | **Database half done; model half needs a decision** |
+| — | Live Capture — record in the browser (mic + tab/screen audio), then the upload pipeline | Done |
 
 Every milestone has a script that proves it. The full suite is green.
 
@@ -71,7 +72,13 @@ Every script that spends a Gemini request says so in its header.
 - **Owed's `MINE` filter is empty for real uploads.** Nothing links a voice to
   the account. Tasks show under `EVERYONE`. Fix written down; deferred.
 - **Only Gladia transcribes.** Deepgram and Whisper appear in settings, unwired.
-- **Live Capture is a labelled demo.** The real bot is a separate project.
+- **Live Capture records; it does not transcribe live.** The screen shows a
+  level meter, elapsed time and file size, and the transcript arrives through
+  the same pipeline as an upload once the user stops. A live transcript would
+  need a streaming service and a place to relay it; the bot that joins a call
+  is still a separate project. Tab audio needs Chrome or Edge.
+- **A capture lost mid-upload survives only in memory.** The file is held in
+  the browser so `RETRY` can send it again; a refresh before it lands loses it.
 - **One first-upload time (2:30 for 5:44) is unexplained.** The next upload
   records its own breakdown on `processing_jobs`.
 

@@ -1,5 +1,5 @@
-import type { Meeting, User, VoiceDirectory } from "../mockData";
-import type { AppSettings } from "../settings";
+import type { Meeting, User, VoiceDirectory } from "@/data/mockData";
+import type { AppSettings } from "@/domain/settings";
 import type {
   MeetingRowWithChildren,
   PersonRow,

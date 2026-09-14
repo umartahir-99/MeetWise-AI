@@ -39,8 +39,8 @@ import the fixtures for display or search. `Ask` used to, which meant uploads
 were invisible to it and deleted meetings were still cited; that is the bug this
 section exists to keep fixed.
 
-`src/retrieval.ts` is the whole retrieval path, pure and React-free, in the same
-shape as `processing.ts` / `commitments.ts` / `speakers.ts`. `Ask.tsx` stays
+`src/domain/retrieval.ts` is the whole retrieval path, pure and React-free, in the same
+shape as `processing.ts` / `commitments.ts` / `speakers.ts`. `components/sections/Ask.tsx` stays
 presentational: it takes `meetings` and `speakers`, calls
 `buildIndex(meetings, speakers)` in a `useMemo`, and calls `answerQuestion` on
 submit. Retrieval declares only the slice of the resolver it needs, as
@@ -157,7 +157,7 @@ Custom classes live in `@layer utilities` in `src/index.css`, using BEM-ish name
 
 `src/App.css` is leftover Vite template CSS and is **not imported anywhere** — ignore it.
 
-`src/components/Logo.tsx` loads `/logo.svg` from `public/`, which does not exist in the repo; the component renders nothing on error by design.
+`src/components/ui/Logo.tsx` loads `/meetwise-icon.png` from `public/` (also the favicon); the component renders nothing on error by design.
 
 ## Motion
 

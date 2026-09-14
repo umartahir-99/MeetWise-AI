@@ -139,7 +139,7 @@ real today versus simulated**.
   "q3 planning sync".
 - Clear the file with the X button and start again.
 - Press "START PROCESSING".
-- Or take the side door: "TRY LIVE CAPTURE".
+- Or, with no recording to bring, "START LIVE CAPTURE" and record from the browser (§5.10).
 
 **Rules that are enforced.**
 
@@ -424,22 +424,38 @@ the app today.
 
 ### 5.10 Live Capture
 
-**What you see.** A two-panel screen. On the left, a live-scrolling transcript with a pulsing red
-dot and an elapsed timer. On the right, "REAL-TIME AI PROCESS" filling in topics, decisions and
-action items as the conversation goes.
+**What you see.** A two-panel screen. On the left, a pulsing red dot, an elapsed timer and a
+level meter that moves with what the microphone hears — or, if the microphone was refused, the
+reason and a "TRY AGAIN". On the right, "CAPTURE": a title field, the two sources (MICROPHONE,
+MEETING AUDIO) with their state, and the recording's bitrate, size so far and how much room is
+left under the storage cap. A line at the bottom says the transcript and summary are produced
+after you stop, and that nothing is analysed live.
 
-**What you can do.** Watch it, then "END & SAVE MEMORY" or "ABANDON".
+**What you can do.**
+- Speak. The meter is the proof the recording is real.
+- "ADD TAB OR SCREEN AUDIO" — Chrome's share picker opens; pick the tab or screen the call is in
+  and tick "Share tab audio" / "Share system audio". Its sound is mixed into the same recording,
+  so the other side of a call is captured too. Sharing without the audio box ticked reports
+  "NO AUDIO IN THAT SOURCE"; stopping the share from the browser reports "STOPPED" and the
+  microphone carries on.
+- Give it a title, or accept "Live capture · SEP 15, 2026 14:30".
+- "END & SAVE MEMORY" (enabled after two seconds) — the recording becomes a file and goes
+  through exactly the upload path: a row is created, the file goes to storage, and the
+  Processing screen opens on the real stages. "ABANDON" releases the microphone and creates
+  nothing.
 
-**Real today? No — and this is the biggest gap in the product.** This screen never touches your
-microphone. There is no microphone permission request and no recording anywhere in the code. It
-replays the **same hardcoded nine-line script** every single time, about IndexedDB and encryption,
-between three fixed names. The "AI insights" appearing on the right are pre-written and revealed
-on a timer. Saving always produces a meeting with the identical title, gist and summary no matter
-when you stop it.
+**Rules that are enforced.**
+- Opus in WebM at 48 kbps (MP4 where WebM is unavailable), so an hour weighs ~21 MB. At the
+  50 MiB storage cap the recorder stops itself and saves what it has.
+- A capture whose upload fails is kept in the browser's memory so "RETRY PROCESSING" can send it
+  again without returning to the upload screen. A refresh before it lands loses it.
+- Sharing tab or screen audio needs Chrome or Edge; elsewhere the button says so and only the
+  microphone is recorded.
 
-**What happens to it.** It stays as a demo for version 1, clearly labelled. The real version — an
-AI bot that joins your meeting, listens, and hands you the document at the end — is the long-term
-goal described in the project brief, and it is a separate project from this backend.
+**Real today?** Yes — the recording is. It is transcribed, separated by speaker and summarised
+by the same pipeline as an upload. What is *not* real, and is not shown: a live transcript or
+live notes. That would need a streaming transcription service and somewhere to relay it, and the
+bot that joins a call on its own is still a separate project.
 
 ---
 
@@ -466,7 +482,7 @@ This table exists so nothing gets shipped as real by accident.
 | Export | **Real** | — |
 | Retention purge | **Real** | Deletes from memory only |
 | Model & language settings | **Inert** | Saved and shown, sent nowhere |
-| Live Capture | **Fake** | A fixed 9-line script, no microphone |
+| Live Capture | **Fake** (now real: records mic + tab audio, then the upload pipeline) | A fixed 9-line script, no microphone |
 | **Anything surviving a refresh** | **None of it** | All state is in memory |
 
 > **The single most important line in this document:** there is no storage of any kind in the app

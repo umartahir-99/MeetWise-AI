@@ -620,8 +620,8 @@ database, not a timer.
 | `src/api/voices.ts` | Name a voice, forget a voice, load the directory |
 | `src/api/settings.ts` | Read and write settings |
 | `src/api/storage.ts` | Upload a file, get a signed playback URL |
-| `src/useArchive.ts` | Replaces `useState(MOCK_MEETINGS)` and `useProcessingEngine` |
-| `src/components/Auth.tsx` | Sign up / sign in screen |
+| `src/hooks/useArchive.ts` | Replaces `useState(MOCK_MEETINGS)` and `useProcessingEngine` |
+| `src/components/views/Auth.tsx` | Sign up / sign in screen |
 
 These follow the existing convention: plain modules with no React in them, the same way
 `processing.ts`, `retrieval.ts`, `commitments.ts` and `speakers.ts` are already written.

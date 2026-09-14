@@ -1,5 +1,5 @@
-import { supabase } from "../lib/supabase";
-import type { Meeting } from "../mockData";
+import { supabase } from "@/lib/supabase";
+import type { Meeting } from "@/data/mockData";
 import { toMeeting } from "./mappers";
 import type { MeetingRowWithChildren } from "./rows";
 
